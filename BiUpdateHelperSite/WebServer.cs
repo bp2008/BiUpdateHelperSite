@@ -2,7 +2,10 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Security;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using BiUpdateHelperSite.DB;
 using BPUtil;
@@ -14,10 +17,20 @@ namespace BiUpdateHelperSite
 	public class WebServer : HttpServer
 	{
 		private long rnd = StaticRandom.Next(int.MinValue, int.MaxValue);
+		private Thread thrFtpBackup;
 		public WebServer(int port) : base(port)
 		{
 			//SendBufferSize = 65536;
 			XRealIPHeader = true;
+			if (!string.IsNullOrWhiteSpace(MainStatic.settings.backupFtpPath))
+			{
+				thrFtpBackup = new Thread(ftpBackupLoop);
+				thrFtpBackup.Name = "Ftp Backup";
+				thrFtpBackup.IsBackground = true;
+				thrFtpBackup.Start();
+			}
+			// Outgoing "secure" connections accept all certificates, for FTP backup
+			ServicePointManager.ServerCertificateValidationCallback = new RemoteCertificateValidationCallback(delegate { return true; });
 		}
 		private static bool IsAdmin(HttpProcessor p)
 		{
@@ -26,6 +39,23 @@ namespace BiUpdateHelperSite
 		public override void handleGETRequest(HttpProcessor p)
 		{
 			string pageLower = p.requestedPage.ToLower();
+			//if (pageLower == "manualfix")
+			//{
+			//	if (IsAdmin(p))
+			//	{
+			//		p.writeSuccess("text/plain");
+			//		try
+			//		{
+			//			Agent.RetroactiveFixData();
+			//		}
+			//		catch (Exception ex)
+			//		{
+			//			p.outputStream.WriteLine(ex.ToString());
+			//		}
+			//	}
+			//	else
+			//		p.writeFailure("403 Forbidden");
+			//}
 			if (pageLower.StartsWith("api/"))
 			{
 				p.writeFailure("405 Method Not Allowed");
@@ -204,6 +234,61 @@ namespace BiUpdateHelperSite
 
 		protected override void stopServer()
 		{
+			Try.Catch(() => { thrFtpBackup?.Abort(); });
+		}
+
+		private void ftpBackupLoop()
+		{
+			try
+			{
+				long timeBetweenBackups = (long)TimeSpan.FromDays(7).TotalMilliseconds;
+				while (true)
+				{
+					try
+					{
+						long timeSinceLastBackup = TimeUtil.GetTimeInMsSinceEpoch() - MainStatic.settings.lastFtpBackupMs;
+						if (timeSinceLastBackup < timeBetweenBackups)
+						{
+							TimeSpan sleepTime = TimeSpan.FromMilliseconds(timeBetweenBackups - timeSinceLastBackup);
+							Thread.Sleep(sleepTime);
+						}
+						else
+						{
+							DoFtpBackupNow();
+						}
+					}
+					catch (ThreadAbortException) { throw; }
+					catch (Exception ex)
+					{
+						Logger.Debug(ex, "ftpBackup inner loop");
+					}
+				}
+			}
+			catch (ThreadAbortException) { }
+			catch (Exception ex)
+			{
+				Logger.Debug(ex, "ftpBackup outer loop");
+			}
+		}
+
+		private void DoFtpBackupNow()
+		{
+			using (WebClient wc = new WebClient())
+			{
+				string backupNameSegment = "bk-" + DateTime.UtcNow.ToString("yyyy-MM-dd") + "-utc";
+
+				string ftpBase = MainStatic.settings.backupFtpPath.TrimEnd('/') + "/";
+
+				wc.Credentials = new NetworkCredential(MainStatic.settings.backupFtpUser, MainStatic.settings.backupFtpPass);
+				// TODO: Lock the database file while backing it up.  That more than likely means closing the database, copying it locally, hoping there is enough disk space for that, opening the db again, and delaying requests to the DB while it is closed.
+				
+				wc.UploadFile(ftpBase + "UsageDb." + backupNameSegment + ".s3db", "STOR", MainStatic.settings.dbPath);
+				wc.UploadFile(ftpBase + "SiteSettings." + backupNameSegment + ".cfg", "STOR", MainStatic.SettingsPath);
+
+				MainStatic.settings.Load(MainStatic.SettingsPath);
+				MainStatic.settings.lastFtpBackupMs = TimeUtil.GetTimeInMsSinceEpoch();
+				MainStatic.settings.Save(MainStatic.SettingsPath);
+			}
 		}
 	}
 }

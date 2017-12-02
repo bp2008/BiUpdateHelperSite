@@ -60,9 +60,23 @@ namespace BiUpdateHelperSite.DB
 		{
 			return db.Get<GpuInfo>(GpuID);
 		}
-
+		//public static void RetroactiveFixData()
+		//{
+		//	UsageRecord record = GetUsageRecord(11);
+		//	record.Total_FPS = 0;
+		//	record.Total_MPPS = 0;
+		//	List<Camera> cameras = GetCameras(11);
+		//	foreach (var cam in cameras)
+		//	{
+		//		float MP = cam.Pixels / 1000000f;
+		//		record.Total_FPS += cam.FPS;
+		//		record.Total_MPPS += MP * cam.FPS;
+		//	}
+		//	db.Update(record);
+		//}
 		public static void AddUsageRecord(UsageRecordUpload.v1.Upload_Record obj)
 		{
+			BugFixer.Fix(obj);
 			// Create objects
 			UsageRecord record = new UsageRecord();
 			record.Secret = obj.Secret;
@@ -132,7 +146,6 @@ namespace BiUpdateHelperSite.DB
 				foreach (Camera camera in cameras)
 				{
 					camera.UsageRecordID = record.ID;
-					Logger.Info("Inserting Camera for Record: " + camera.UsageRecordID);
 					db.Insert(camera);
 				}
 
@@ -143,7 +156,6 @@ namespace BiUpdateHelperSite.DB
 					gi.UsageRecordID = record.ID;
 					gi.Name = gpu.Name;
 					gi.DriverVersion = gpu.Version;
-					Logger.Info("Inserting GPU for Record: " + gi.UsageRecordID);
 					db.Insert(gi);
 				}
 			});

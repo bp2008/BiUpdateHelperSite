@@ -12,5 +12,12 @@ namespace BiUpdateHelperSite
 		public int webPort = 5000;
 		public string dbPath = "UsageDb.s3db";
 		public string adminIp = "";
+		/// <summary>
+		/// E.g. "ftpes://ftp.example.com:21/
+		/// </summary>
+		public string backupFtpPath = "";
+		public string backupFtpUser = "";
+		public string backupFtpPass = "";
+		public long lastFtpBackupMs = 0;
 	}
 }

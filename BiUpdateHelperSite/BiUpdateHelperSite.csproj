@@ -67,6 +67,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BugFixer.cs" />
     <Compile Include="JSAPI\APIResponse.cs" />
     <Compile Include="DB\Agent.cs" />
     <Compile Include="DB\Camera.cs" />
@@ -132,6 +133,12 @@
     <Content Include="www\js\jquery.stickytabs.js" />
     <Content Include="www\js\jquery.tablesorter.combined.min.js" />
     <Content Include="www\js\TableEditor.js" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\BPUtil\BPUtil\BPUtil.csproj">
+      <Project>{a4981d8d-debf-4b34-b9ce-ff25520a02b7}</Project>
+      <Name>BPUtil</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
