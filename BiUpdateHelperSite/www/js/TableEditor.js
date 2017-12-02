@@ -156,6 +156,7 @@
 
 			// Populate header cells.
 			var $headRow = $table.find("thead tr").first();
+			var headerDefs = null;
 			for (var i = 0; i < colspecs.length; i++)
 			{
 				colspecs[i] = $.extend(
@@ -178,6 +179,7 @@
 						//		{ 
 						//			return $input.val();;
 						//		}
+						, sorter: null
 					}, colspecs[i]);
 
 				var col = colspecs[i];
@@ -187,6 +189,13 @@
 				if (col.title)
 					$th.attr('title', col.title);
 				$headRow.append($th);
+
+				if (col.sorter)
+				{
+					if (!headerDefs)
+						headerDefs = {};
+					headerDefs[i] = { sorter: col.sorter };
+				}
 			}
 
 			// Enable tablesorter / visual theme
@@ -202,6 +211,8 @@
 					filter_cssFilter: "form-control"
 				}
 			}
+			if (headerDefs)
+				tableSorterArgs.headers = headerDefs;
 			if (self.settings.theme == "bootstrap")
 			{
 				widgets.push('uitheme');
@@ -211,6 +222,8 @@
 				tableSorterArgs.widthFixed = true;
 				tableSorterArgs.headerTemplate = '{content} {icon}'; // Needed to add the bootstrap icon!
 			}
+
+
 			tableSorter = $table.tablesorter(tableSorterArgs);
 
 			tableSorter.bind("sortEnd", SortEnded);

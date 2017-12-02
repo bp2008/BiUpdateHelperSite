@@ -88,9 +88,34 @@ namespace BiUpdateHelperSite.DB
 		/// </summary>
 		public ushort RamChannels { get; set; }
 		/// <summary>
+		/// [New in v2] A semicolon-separated string of Dimm Locations (slot names)
+		/// </summary>
+		[MaxLength(128)]
+		public string DimmLocations { get; set; }
+		/// <summary>
 		/// Speed of the first physical memory DIMM, in MHz.
 		/// </summary>
 		public ushort RamMHz { get; set; }
+		/// <summary>
+		/// [New in v2] If true, BI was configured to run in service mode.
+		/// </summary>
+		public bool ServiceMode { get; set; }
+		/// <summary>
+		/// [New in v2] If true, the console was open.
+		/// </summary>
+		public bool ConsoleOpen { get; set; }
+		/// <summary>
+		/// [New in v2] -1 if unavailable. -2 if minimized.  Otherwise, a positive number, probably not zero.
+		/// </summary>
+		public short ConsoleWidth { get; set; }
+		/// <summary>
+		/// [New in v2] -1 if unavailable. -2 if minimized.  Otherwise, a positive number, probably not zero.
+		/// </summary>
+		public short ConsoleHeight { get; set; }
+		/// <summary>
+		/// [New in v2] -1 if unavailable. -2 if the limit is disabled.  Otherwise, a number typically between 1 and 30.
+		/// </summary>
+		public short LivePreviewFPS { get; set; }
 		/// <summary>
 		/// Number of enabled cameras.
 		/// </summary>

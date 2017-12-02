@@ -87,6 +87,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Settings.cs" />
     <Compile Include="DB\SQLite.cs" />
+    <Compile Include="UsageRecordUpload\Uploadv2.cs" />
     <Compile Include="UsageRecordUpload\Uploadv1.cs" />
     <Compile Include="WebServer.cs" />
   </ItemGroup>

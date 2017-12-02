@@ -25,6 +25,30 @@
 		odd: ''  // odd row zebra striping
 	};
 
+	$.tablesorter.addParser(
+		{
+			// set a unique id 
+			id: 'timeRough',
+			is: function (s)
+			{
+				// return false so this parser is not auto detected 
+				return false;
+			},
+			format: function (s)
+			{
+				if (s.indexOf(" d") > -1)
+					return parseFloat(s) * 86400;
+				else if (s.indexOf(" h") > -1)
+					return parseFloat(s) * 3600;
+				else if (s.indexOf(" m") > -1)
+					return parseFloat(s) * 60;
+				else
+					return parseFloat(s)
+			},
+			// set type, either numeric or text 
+			type: 'numeric'
+		});
+
 	var statsLoadStarted = false;
 	var statsTableEditor = null;
 	var statsResponse = null;
@@ -39,7 +63,8 @@
 		{ name: "Memory Free / Total", field: "MemFreeMB", type: "custom", customRender: RenderMEM },
 		{ name: "RAM Channels / MHz", field: "RamChannels", type: "custom", customRender: RenderRAM },
 		{ name: "HW Video Accel", field: "HwAccel" },
-		{ name: "Age", field: "age", type: "custom", customRender: RenderAge }
+		{ name: "Console", field: "ConsoleOpen", type: "custom", customRender: RenderConsole },
+		{ name: "Age", field: "age", type: "custom", customRender: RenderAge, sorter: "timeRough" }
 	];
 	if (isAdmin)
 		tableDef.push({ name: "Secret", field: "secret", type: "custom", customRender: RenderSecret });
@@ -120,6 +145,12 @@
 		sb.push(MakeDLRow("Operating System", u.OS));
 		sb.push(MakeDLRow("Blue Iris Version", u.BiVersion));
 		sb.push(MakeDLRow("Helper Version", u.HelperVersion));
+		var v2 = isV2(u.HelperVersion);
+		sb.push(MakeDLRow("Service Mode", v2 ? u.ServiceMode : "Unknown"));
+		sb.push(MakeDLRow("Console Open", v2 ? u.ConsoleOpen : "Unknown"));
+		sb.push(MakeDLRow("Console Width", GetV2ShortValue(v2, u.ConsoleWidth, "Minimized")));
+		sb.push(MakeDLRow("Console Height", GetV2ShortValue(v2, u.ConsoleHeight, "Minimized")));
+		sb.push(MakeDLRow("Live Preview FPS", GetV2ShortValue(v2, u.LivePreviewFPS, "Unknown", "FPS")));
 		sb.push('</dl>');
 		sb.push('<h3 class="text-center">CPU</h3>');
 		sb.push('<dl class="dl-horizontal">');
@@ -131,7 +162,7 @@
 		sb.push('<h3 class="text-center">Memory</h3>');
 		sb.push('<dl class="dl-horizontal">');
 		sb.push(MakeDLRow("Physical Capacity", u.RamGiB + " GiB"));
-		sb.push(MakeDLRow("Memory Channels", (u.RamChannels == 0 ? "Unknown" : u.RamChannels)));
+		sb.push(MakeDLRow("Memory Channels", (u.RamChannels == 0 ? "Unknown" : u.RamChannels), GetDimmLocationsTooltip(u.DimmLocations)));
 		sb.push(MakeDLRow("RAM Speed", u.RamMHz + " MHz"));
 		sb.push(MakeDLRow("System Memory", MB_To_MiB(u.MemMB, 1) + " MiB"));
 		sb.push(MakeDLRow("Memory (Free)", MB_To_MiB(u.MemFreeMB, 1) + " MiB"));
@@ -197,13 +228,19 @@
 			sb.push('<p>Unavailable</p>');
 		return sb.join("");
 	}
-	function MakeDLRow(titleHtml, contentText)
+	function MakeDLRow(titleHtml, contentText, tooltip)
 	{
-		return '<dt>' + titleHtml + '</dt><dd>' + EscapeHTML(contentText) + '</dd>';
+		if (tooltip)
+			return '<dt title="' + tooltip + '">' + titleHtml + '</dt><dd title="' + tooltip + '">' + EscapeHTML(contentText) + '</dd>';
+		else
+			return '<dt>' + titleHtml + '</dt><dd>' + EscapeHTML(contentText) + '</dd>';
 	}
-	function MakeDLRowHtml(titleHtml, contentHtml)
+	function MakeDLRowHtml(titleHtml, contentHtml, tooltip)
 	{
-		return '<dt>' + titleHtml + '</dt><dd>' + contentHtml + '</dd>';
+		if (tooltip)
+			return '<dt title="' + tooltip + '">' + titleHtml + '</dt><dd title="' + tooltip + '">' + contentHtml + '</dd>';
+		else
+			return '<dt>' + titleHtml + '</dt><dd>' + contentHtml + '</dd>';
 	}
 	function showModal(title, htmlOrEleContent)
 	{
@@ -240,6 +277,26 @@
 				return secret.substr(0, 8);
 		}
 		return "";
+	}
+	function RenderConsole(item, editable, fieldName)
+	{
+		var txt;
+		if (!isV2(item.HelperVersion))
+			return "Unknown";
+		if (item.ConsoleOpen)
+		{
+			if (item.ConsoleWidth == -2)
+				txt = "Minimized";
+			else
+			{
+				txt = "Open<br>" + item.ConsoleWidth + "x" + item.ConsoleHeight;
+				if (item.LivePreviewFPS > -1)
+					txt += "<br>@ " + item.LivePreviewFPS + " FPS";
+			}
+		}
+		else
+			txt = "Closed";
+		return txt;
 	}
 	function RenderAge(item, editable, fieldName)
 	{
@@ -280,6 +337,32 @@
 	Number.prototype.toFixedLoose = function (decimals)
 	{
 		return parseFloat(this.toFixed(decimals));
+	}
+	function isV2(version)
+	{
+		return version != "1.6.0.0" && version != "1.6.1.0";
+	}
+	function GetV2ShortValue(isV2, value, specialValue, goodLabel)
+	{
+		if (!isV2)
+			return "Unknown";
+		if (goodLabel)
+			goodLabel = " " + goodLabel;
+		else
+			goodLabel = "";
+		if (value == -2)
+			return specialValue;
+		else if (value == -1)
+			return "Unknown";
+		else
+			return value + goodLabel;
+	}
+	function GetDimmLocationsTooltip(str)
+	{
+		if (str)
+			return EscapeHTML(str).replace(/;/g, "\n");
+		else
+			return null;
 	}
 	function MB_To_MiB(MB, fixedPrecision)
 	{

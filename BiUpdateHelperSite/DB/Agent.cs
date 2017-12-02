@@ -74,11 +74,13 @@ namespace BiUpdateHelperSite.DB
 		//	}
 		//	db.Update(record);
 		//}
-		public static void AddUsageRecord(UsageRecordUpload.v1.Upload_Record obj)
+		public static void AddUsageRecord(UsageRecordUpload.v2.Upload_Record obj)
 		{
 			BugFixer.Fix(obj);
 			// Create objects
 			UsageRecord record = new UsageRecord();
+
+			// v1 Properties
 			record.Secret = obj.Secret;
 			record.Timestamp = TimeUtil.GetTimeInMsSinceEpoch();
 			record.OS = obj.OS;
@@ -96,6 +98,16 @@ namespace BiUpdateHelperSite.DB
 			record.RamGiB = obj.RamGiB;
 			record.RamChannels = obj.RamChannels;
 			record.RamMHz = obj.RamMHz;
+
+			// v2 properties
+			record.DimmLocations = obj.DimmLocations;
+			record.ServiceMode = obj.ServiceMode;
+			record.ConsoleOpen = obj.ConsoleOpen;
+			record.ConsoleWidth = obj.ConsoleWidth;
+			record.ConsoleHeight = obj.ConsoleHeight;
+			record.LivePreviewFPS = obj.LivePreviewFPS;
+
+			// Cameras
 
 			List<Camera> cameras = new List<Camera>();
 			record.CameraCount = (byte)Math.Min(255, obj.cameras.Length);

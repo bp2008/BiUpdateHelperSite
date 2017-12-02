@@ -147,6 +147,7 @@ namespace BiUpdateHelperSite
 				switch (cmd)
 				{
 					case "uploadUsageRecord1":
+					case "uploadUsageRecord2":
 						{
 							// If this needs extended in the future, just make a new "case" with an incremented number.
 							string allUploaded = inputData.ReadToEnd();
@@ -160,7 +161,7 @@ namespace BiUpdateHelperSite
 								p.writeFailure("400 Bad Request");
 								return;
 							}
-							UsageRecordUpload.v1.Upload_Record record = JsonConvert.DeserializeObject<UsageRecordUpload.v1.Upload_Record>(allUploaded);
+							UsageRecordUpload.v2.Upload_Record record = JsonConvert.DeserializeObject<UsageRecordUpload.v2.Upload_Record>(allUploaded);
 							DB.Agent.AddUsageRecord(record);
 							p.writeSuccess("text/plain", 0);
 						}
@@ -281,7 +282,7 @@ namespace BiUpdateHelperSite
 
 				wc.Credentials = new NetworkCredential(MainStatic.settings.backupFtpUser, MainStatic.settings.backupFtpPass);
 				// TODO: Lock the database file while backing it up.  That more than likely means closing the database, copying it locally, hoping there is enough disk space for that, opening the db again, and delaying requests to the DB while it is closed.
-				
+
 				wc.UploadFile(ftpBase + "UsageDb." + backupNameSegment + ".s3db", "STOR", MainStatic.settings.dbPath);
 				wc.UploadFile(ftpBase + "SiteSettings." + backupNameSegment + ".cfg", "STOR", MainStatic.SettingsPath);
 
