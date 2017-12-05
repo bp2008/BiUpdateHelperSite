@@ -198,7 +198,7 @@
 		sb.push('<h3 class="text-center">Camera Details</h3>');
 		if (response.cameras.length > 0)
 		{
-			sb.push('<table class="table">');
+			sb.push('<div style="overflow-x: auto;"><table class="table">');
 			sb.push('<thead><tr><th>Type</th><th>Megapixels</th><th>FPS</th><th>Hardware Acceleration</th><th>Limit Decode</th><th>Motion Detection</th><th>Recording Trigger</th><th>Format</th><th>Direct-to-disc</th><th>Video Codec</th></tr></thead>');
 			sb.push('<tbody>');
 			for (var i = 0; i < response.cameras.length; i++)
@@ -222,7 +222,7 @@
 				sb.push('</tr>');
 			}
 			sb.push('</tbody>');
-			sb.push('</table>');
+			sb.push('</table></div>');
 		}
 		else
 			sb.push('<p>Unavailable</p>');
