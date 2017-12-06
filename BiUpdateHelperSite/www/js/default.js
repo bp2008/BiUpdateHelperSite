@@ -146,6 +146,7 @@
 		sb.push(MakeDLRow("Blue Iris Version", u.BiVersion));
 		sb.push(MakeDLRow("Helper Version", u.HelperVersion));
 		var v2 = isV2(u.HelperVersion);
+		var v2_1 = isV2_1(u.HelperVersion);
 		sb.push(MakeDLRow("Service Mode", v2 ? u.ServiceMode : "Unknown"));
 		sb.push(MakeDLRow("Console Open", v2 ? u.ConsoleOpen : "Unknown"));
 		sb.push(MakeDLRow("Console Width", GetV2ShortValue(v2, u.ConsoleWidth, "Minimized")));
@@ -156,6 +157,7 @@
 		sb.push('<dl class="dl-horizontal">');
 		sb.push(MakeDLRow("Model", u.CpuModel));
 		sb.push(MakeDLRow("Clock Speed", u.CpuMHz + " MHz"));
+		sb.push(MakeDLRow("Threads Available", v2_1 ? u.CpuThreads : "Unknown"));
 		sb.push(MakeDLRow("Usage (Overall)", u.CpuUsage + "%"));
 		sb.push(MakeDLRow("Usage (Blue Iris)", u.BiCpuUsage + "%"));
 		sb.push('</dl>');
@@ -341,6 +343,10 @@
 	function isV2(version)
 	{
 		return version != "1.6.0.0" && version != "1.6.1.0";
+	}
+	function isV2_1(version)
+	{
+		return isV2(version) && version != "1.6.2.0";
 	}
 	function GetV2ShortValue(isV2, value, specialValue, goodLabel)
 	{

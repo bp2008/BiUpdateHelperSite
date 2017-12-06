@@ -59,6 +59,11 @@ namespace BiUpdateHelperSite.DB
 		/// </summary>
 		public byte BiCpuUsage { get; set; }
 		/// <summary>
+		/// Number of threads available to the OS (e.g. 8 threads for a 4 core CPU with hyperthreading).
+		/// May differ from the expected amount if the machine is virtualized.
+		/// </summary>
+		public short CpuThreads { get; set; }
+		/// <summary>
 		/// Total system memory, in MB.
 		/// </summary>
 		public int MemMB { get; set; }

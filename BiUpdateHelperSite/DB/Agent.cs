@@ -90,6 +90,7 @@ namespace BiUpdateHelperSite.DB
 			record.CpuMHz = obj.CpuMHz;
 			record.CpuUsage = obj.CpuUsage;
 			record.BiCpuUsage = obj.BiCpuUsage;
+			record.CpuThreads = obj.CpuThreads;
 			record.MemMB = obj.MemMB;
 			record.BiMemUsageMB = obj.BiMemUsageMB;
 			record.BiPeakVirtualMemUsageMB = obj.BiPeakVirtualMemUsageMB;

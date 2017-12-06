@@ -8,6 +8,7 @@ namespace BiUpdateHelperSite.UsageRecordUpload.v2
 {
 	public class Upload_Record : v1.Upload_Record
 	{
+		public short CpuThreads; // New in v2(.1)
 		public string DimmLocations = null;
 		public bool ServiceMode = false;
 		public bool ConsoleOpen = false;
