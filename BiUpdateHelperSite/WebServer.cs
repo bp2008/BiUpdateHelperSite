@@ -34,7 +34,7 @@ namespace BiUpdateHelperSite
 		}
 		private static bool IsAdmin(HttpProcessor p)
 		{
-			return p.RemoteIPAddress == MainStatic.settings.adminIp;
+			return p.RemoteIPAddressStr == MainStatic.settings.adminIp;
 		}
 		public override void handleGETRequest(HttpProcessor p)
 		{
@@ -63,7 +63,7 @@ namespace BiUpdateHelperSite
 			else if (p.requestedPage == "IP")
 			{
 				p.writeSuccess("text/plain");
-				p.outputStream.Write(p.RemoteIPAddress);
+				p.outputStream.Write(p.RemoteIPAddressStr);
 			}
 			else if (p.requestedPage == "HEADERS")
 			{
@@ -73,7 +73,7 @@ namespace BiUpdateHelperSite
 			else if (p.requestedPage == "IP")
 			{
 				p.writeSuccess("text/plain");
-				p.outputStream.Write(p.RemoteIPAddress);
+				p.outputStream.Write(p.RemoteIPAddressStr);
 			}
 			else if (p.requestedPage == "")
 			{
@@ -107,8 +107,8 @@ namespace BiUpdateHelperSite
 					byte[] data = Encoding.UTF8.GetBytes(html);
 					p.writeSuccess(Mime.GetMimeType(fi.Extension), data.Length);
 					p.outputStream.Flush();
-					p.rawOutputStream.Write(data, 0, data.Length);
-					p.rawOutputStream.Flush();
+					p.tcpStream.Write(data, 0, data.Length);
+					p.tcpStream.Flush();
 				}
 				else
 				{
@@ -124,9 +124,9 @@ namespace BiUpdateHelperSite
 					p.outputStream.Flush();
 					using (FileStream fs = fi.OpenRead())
 					{
-						fs.CopyTo(p.rawOutputStream);
+						fs.CopyTo(p.tcpStream);
 					}
-					p.rawOutputStream.Flush();
+					p.tcpStream.Flush();
 				}
 			}
 		}
@@ -197,10 +197,13 @@ namespace BiUpdateHelperSite
 								}
 							}
 							byte[] data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(response));
-							p.writeSuccess("application/json", data.Length);
+							p.CompressResponseIfCompatible();
+							List<KeyValuePair<string, string>> additionalHeaders = new List<KeyValuePair<string, string>>();
+							additionalHeaders.Add(new KeyValuePair<string, string>("Cache-Control", "no-cache, no-store"));
+							p.writeSuccess("application/json", additionalHeaders: additionalHeaders);
 							p.outputStream.Flush();
-							p.rawOutputStream.Write(data, 0, data.Length);
-							p.rawOutputStream.Flush();
+							p.tcpStream.Write(data, 0, data.Length);
+							p.tcpStream.Flush();
 						}
 						break;
 					case "deleteRecord":
@@ -225,8 +228,8 @@ namespace BiUpdateHelperSite
 							byte[] data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(response));
 							p.writeSuccess("application/json", data.Length);
 							p.outputStream.Flush();
-							p.rawOutputStream.Write(data, 0, data.Length);
-							p.rawOutputStream.Flush();
+							p.tcpStream.Write(data, 0, data.Length);
+							p.tcpStream.Flush();
 						}
 						break;
 				}

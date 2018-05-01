@@ -13,12 +13,18 @@ namespace BiUpdateHelperSite.DB
 	public static class Agent
 	{
 		private static SQLiteConnection db;
+		private static SQLiteConnection archive;
 		static Agent()
 		{
 			db = new SQLiteConnection(MainStatic.settings.dbPath);
 			db.CreateTable<UsageRecord>();
 			db.CreateTable<Camera>();
 			db.CreateTable<GpuInfo>();
+
+			archive = new SQLiteConnection(MainStatic.settings.dbArchivePath);
+			archive.CreateTable<UsageRecord>();
+			archive.CreateTable<Camera>();
+			archive.CreateTable<GpuInfo>();
 		}
 		public static List<UsageRecord> GetAllUsageRecords()
 		{
@@ -109,7 +115,6 @@ namespace BiUpdateHelperSite.DB
 			record.LivePreviewFPS = obj.LivePreviewFPS;
 
 			// Cameras
-
 			List<Camera> cameras = new List<Camera>();
 			record.CameraCount = (byte)Math.Min(255, obj.cameras.Length);
 			record.Total_FPS = record.Total_Megapixels = record.Total_MPPS = 0;
@@ -134,6 +139,17 @@ namespace BiUpdateHelperSite.DB
 				cameras.Add(camera);
 			}
 
+			// GPUs
+			List<GpuInfo> gpus = new List<GpuInfo>();
+			foreach (var gpu in obj.gpus)
+			{
+				GpuInfo gi = new GpuInfo();
+				gi.Name = gpu.Name;
+				gi.DriverVersion = gpu.Version;
+				gpus.Add(gi);
+			}
+
+			// Add to performance data table
 			db.RunInTransaction(() =>
 			{
 				List<UsageRecord> existing = db.Query<UsageRecord>("SELECT * FROM UsageRecord WHERE Secret = ? AND CpuModel = ?", record.Secret, record.CpuModel);
@@ -155,23 +171,41 @@ namespace BiUpdateHelperSite.DB
 					}
 				}
 
-				// Finish creating camera records and add them to the DB.
-				foreach (Camera camera in cameras)
+				InsertCamerasAndGpus(db, record, cameras, gpus);
+			});
+
+			// Add to archive table, which is maintained for the purpose of eventually maybe including history graphing for systems.
+			record.ID = 0;
+			archive.RunInTransaction(() =>
+			{
+				// Add usage record to DB
+				int rowsAffected = archive.Insert(record);
+				if (rowsAffected == 0)
 				{
-					camera.UsageRecordID = record.ID;
-					db.Insert(camera);
+					Logger.Debug("Failed to insert record into archive table: " + JsonConvert.SerializeObject(record));
+					return;
 				}
 
-				// Add Gpu records to the DB.
-				foreach (var gpu in obj.gpus)
-				{
-					GpuInfo gi = new GpuInfo();
-					gi.UsageRecordID = record.ID;
-					gi.Name = gpu.Name;
-					gi.DriverVersion = gpu.Version;
-					db.Insert(gi);
-				}
+				InsertCamerasAndGpus(archive, record, cameras, gpus);
 			});
+
+		}
+
+		private static void InsertCamerasAndGpus(SQLiteConnection conn, UsageRecord record, List<Camera> cameras, List<GpuInfo> gpus)
+		{
+			// Finish creating camera records and add them to the DB.
+			foreach (Camera camera in cameras)
+			{
+				camera.UsageRecordID = record.ID;
+				conn.Insert(camera);
+			}
+
+			// Add Gpu records to the DB.
+			foreach (GpuInfo gpu in gpus)
+			{
+				gpu.UsageRecordID = record.ID;
+				conn.Insert(gpu);
+			}
 		}
 
 		public static bool DeleteUsageRecord(int ID)

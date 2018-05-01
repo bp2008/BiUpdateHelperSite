@@ -151,7 +151,7 @@
 		sb.push(MakeDLRow("Console Open", v2 ? u.ConsoleOpen : "Unknown"));
 		sb.push(MakeDLRow("Console Width", GetV2ShortValue(v2, u.ConsoleWidth, "Minimized")));
 		sb.push(MakeDLRow("Console Height", GetV2ShortValue(v2, u.ConsoleHeight, "Minimized")));
-		sb.push(MakeDLRow("Live Preview FPS", GetV2ShortValue(v2, u.LivePreviewFPS, "Unknown", "FPS")));
+		sb.push(MakeDLRow("Live Preview FPS", GetV2ShortValue(v2, u.LivePreviewFPS, "Unlimited", "FPS")));
 		sb.push('</dl>');
 		sb.push('<h3 class="text-center">CPU</h3>');
 		sb.push('<dl class="dl-horizontal">');
@@ -291,8 +291,22 @@
 				txt = "Minimized";
 			else
 			{
-				txt = "Open<br>" + item.ConsoleWidth + "x" + item.ConsoleHeight;
-				if (item.LivePreviewFPS > -1)
+				txt = "Open";
+				if (item.ConsoleWidth == -1)
+				{
+					//txt += "<br>[Resolution Unknown]";
+				}
+				else
+					txt += "<br>" + item.ConsoleWidth + "x" + item.ConsoleHeight;
+				if (item.LivePreviewFPS == -2)
+				{
+					//txt += "<br>[FPS Unlimited]";
+				}
+				else if (item.LivePreviewFPS == -1)
+				{
+					//txt += "<br>[FPS Unknown]";
+				}
+				else
 					txt += "<br>@ " + item.LivePreviewFPS + " FPS";
 			}
 		}

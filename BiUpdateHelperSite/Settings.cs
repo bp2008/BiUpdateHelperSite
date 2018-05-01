@@ -11,6 +11,7 @@ namespace BiUpdateHelperSite
 	{
 		public int webPort = 5000;
 		public string dbPath = "UsageDb.s3db";
+		public string dbArchivePath = "UsageDb-Archive.s3db";
 		public string adminIp = "";
 		/// <summary>
 		/// E.g. "ftpes://ftp.example.com:21/
