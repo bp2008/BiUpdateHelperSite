@@ -74,9 +74,10 @@ namespace BiUpdateHelperSite.DB
 	public enum HWAccelCamera : byte
 	{
 		Default = 0,
-		Yes_NoVPP = 1,
+		Intel = 1,
 		No = 2,
-		Yes_VPP = 3
+		IntelVPP = 3,
+		NvidiaCUDA = 4
 	}
 	public enum CameraType : byte
 	{

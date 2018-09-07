@@ -141,8 +141,9 @@ namespace BiUpdateHelperSite.DB
 	public enum HWAccel : byte
 	{
 		No = 0,
-		Yes_H264 = 1,
-		Yes_VPP = 2
+		Intel = 1,
+		IntelVPP = 2,
+		NvidiaCUDA = 3
 	}
 	public class UsageRecord_Secret_Map
 	{
