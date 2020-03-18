@@ -101,9 +101,9 @@
 				else
 					statsTableEditor.LoadData(response.error);
 			}, function (jqXHR, textStatus, errorThrown)
-				{
-					statsTableEditor.LoadData(jqXHR.ErrorMessageHtml, true);
-				});
+			{
+				statsTableEditor.LoadData(jqXHR.ErrorMessageHtml, true);
+			});
 		}
 	}
 
@@ -118,9 +118,9 @@
 			else
 				SimpleDialog.html("Details of Usage Record - ERROR<br>" + response.error, modalOptions);
 		}, function (jqXHR, textStatus, errorThrown)
-			{
-				SimpleDialog.html("Details of Usage Record - ERROR<br>" + jqXHR.ErrorMessageHtml, modalOptions);
-			});
+		{
+			SimpleDialog.html("Details of Usage Record - ERROR<br>" + jqXHR.ErrorMessageHtml, modalOptions);
+		});
 	}
 
 	function MakeUsageRecordDetails(response)
@@ -144,6 +144,7 @@
 		sb.push(MakeDLRow("Age of Record", msToTimeString(Date.now() - u.Timestamp)));
 		sb.push(MakeDLRow("Operating System", u.OS));
 		sb.push(MakeDLRow("Blue Iris Version", u.BiVersion));
+		var isBi5 = u.BiVersion && u.BiVersion.indexOf('5') === 0;
 		sb.push(MakeDLRow("Helper Version", u.HelperVersion));
 		var v2 = isV2(u.HelperVersion);
 		var v2_1 = isV2_1(u.HelperVersion);
@@ -216,8 +217,11 @@
 				sb.push('<td>' + c.MotionDetector + '</td>');
 				sb.push('<td>' + c.RecordTriggerType + '</td>');
 				sb.push('<td>' + c.RecordFormat + '</td>');
-				sb.push('<td>' + c.DirectToDisk + '</td>');
-				if (c.DirectToDisk || c.RecordFormat == "WMV")
+				if (isBi5 && cmpVersions(u.HelperVersion, "1.7") < 0)
+					sb.push('<td>Unknown</td>');
+				else
+					sb.push('<td>' + c.DirectToDisk + '</td>');
+				if (c.DirectToDisk || c.RecordFormat === "WMV")
 					sb.push('<td>N/A</td>');
 				else
 					sb.push('<td>' + EscapeHTML(c.VCodec) + '</td>');
@@ -345,14 +349,32 @@
 				else
 					SimpleDialog.html("Delete Record - ERROR<br>" + response.error, modalOptions);
 			}, function (jqXHR, textStatus, errorThrown)
-				{
-					SimpleDialog.html("Delete Record - ERROR<br>" + jqXHR.ErrorMessageHtml, modalOptions);
-				});
+			{
+				SimpleDialog.html("Delete Record - ERROR<br>" + jqXHR.ErrorMessageHtml, modalOptions);
+			});
 		}, null, modalOptions);
 	}
 	Number.prototype.toFixedLoose = function (decimals)
 	{
 		return parseFloat(this.toFixed(decimals));
+	}
+	function cmpVersions(a, b)
+	{
+		var i, diff;
+		var regExStrip0 = /(\.0+)+$/;
+		var segmentsA = a.replace(regExStrip0, '').split('.');
+		var segmentsB = b.replace(regExStrip0, '').split('.');
+		var l = Math.min(segmentsA.length, segmentsB.length);
+
+		for (i = 0; i < l; i++)
+		{
+			diff = parseInt(segmentsA[i], 10) - parseInt(segmentsB[i], 10);
+			if (diff)
+			{
+				return diff;
+			}
+		}
+		return segmentsA.length - segmentsB.length;
 	}
 	function isV2(version)
 	{
@@ -360,7 +382,7 @@
 	}
 	function isV2_1(version)
 	{
-		return isV2(version) && version != "1.6.2.0";
+		return isV2(version) && cmpVersions(version, "1.6.2.0") > 0;
 	}
 	function GetV2ShortValue(isV2, value, specialValue, goodLabel)
 	{

@@ -265,6 +265,7 @@ namespace BiUpdateHelperSite
 					catch (Exception ex)
 					{
 						Logger.Debug(ex, "ftpBackup inner loop");
+						Thread.Sleep(TimeSpan.FromHours(1));
 					}
 				}
 			}

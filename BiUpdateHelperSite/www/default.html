@@ -52,6 +52,30 @@
 						<h1>Blue Iris Performance Statistics</h1>
 						<p>Every week, Blue Iris Update Helper (version 1.6+) submits anonymous performance data to this database.  The data is made freely available here.</p>
 						<p>The purpose of this data is to inform users (and potential users) about the capabilities of different hardware.</p>
+						<p>
+							Click any record to see more details.  Accuracy of the details is not guaranteed <a href="#collapseDataDisclaimer" data-toggle="collapse" role="button" aria-expanded="false" aria-controls="collapseDataDisclaimer">(learn more)</a>.
+						</p>
+						<div id="collapseDataDisclaimer" class="collapse">
+							<div style="border: 1px solid #BBBBBB; border-radius: 5px; padding: 20px 0px;">
+								<ul>
+									<li>
+										Direct-to-disc recording became profile-specific in Blue Iris 5, and BiUpdateHelper has not been updated to read the new value.
+									</li>
+									<li>
+										Duplicated cameras in Blue Iris share resources, but this is not indicated in any way in the data here.  Therefore, a system with duplicated cameras will appear to be running a heavier load than it really is.
+									</li>
+									<li>
+										Camera frame rates may be inaccurate if the performance data collector was unable to query Blue Iris's web server for live frame rate values.  There is no indication in the data when this has happened.
+									</li>
+									<li>
+										The video codec is unknown for cameras with direct-to-disc recording enabled.
+									</li>
+									<li>
+										Blue Iris performance is very complex.  Be careful when drawing conclusions based on data found here.
+									</li>
+								</ul>
+							</div>
+						</div>
 						<h2>Data</h2>
 						<div id="DataTableWrapper"></div>
 					</div>
