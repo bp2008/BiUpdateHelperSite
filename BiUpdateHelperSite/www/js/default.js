@@ -43,7 +43,7 @@
 				else if (s.indexOf(" m") > -1)
 					return parseFloat(s) * 60;
 				else
-					return parseFloat(s)
+					return parseFloat(s);
 			},
 			// set type, either numeric or text 
 			type: 'numeric'
@@ -57,7 +57,7 @@
 		{ name: "MHz", field: "CpuMHz" },
 		{ name: "CPU Usage (Overall)", field: "CpuUsage", type: "custom", customRender: RenderPercent },
 		{ name: "CPU Usage (BlueIris)", field: "BiCpuUsage", type: "custom", customRender: RenderPercent },
-		{ name: "MP/s", field: "Total_MPPS", type: "custom", customRender: RenderDec1 },
+		{ name: "MP/s", field: "Total_MPPS", type: "custom", customRender: RenderMPPS },
 		{ name: "Cameras", field: "CameraCount" },
 		{ name: "Memory (BlueIris)", field: "BiMemUsageMB", type: "custom", customRender: RenderMBtoMiB },
 		{ name: "Memory Free / Total", field: "MemFreeMB", type: "custom", customRender: RenderMEM },
@@ -74,12 +74,12 @@
 		, theme: "bootstrap"
 		, tableClass: "table"
 		, customRowClick: statsRowClick
-	}
+	};
 
 	$('.nav-pills').stickyTabs({ hashChangeCallback: hashChangeCallback });
 	function hashChangeCallback(hash)
 	{
-		if (hash == "#stats")
+		if (hash === "#stats")
 		{
 			if (statsLoadStarted)
 				return;
@@ -88,7 +88,7 @@
 			ExecAPI("getUsageRecords", function (response)
 			{
 				statsResponse = response;
-				if (response.result == "success")
+				if (response.result === "success")
 				{
 					if (response.secrets)
 					{
@@ -113,7 +113,7 @@
 		var recordId = parseInt($tr.attr("pk"));
 		ExecAPI("getUsageRecords?detailsForId=" + recordId, function (response)
 		{
-			if (response.result == "success")
+			if (response.result === "success")
 				showModal("Details of Usage Record", MakeUsageRecordDetails(response));
 			else
 				SimpleDialog.html("Details of Usage Record - ERROR<br>" + response.error, modalOptions);
@@ -126,7 +126,51 @@
 	function MakeUsageRecordDetails(response)
 	{
 		var u = response.usage;
-		if (u.CameraCount == 0)
+
+		var is_helper_1_7_plus = cmpVersions(u.HelperVersion, "1.7") >= 0;
+		var is_helper_1_7_1_plus = cmpVersions(u.HelperVersion, "1.7.1") >= 0;
+		var is_bi_5_plus = u.BiVersion && cmpVersions(u.BiVersion, "5.0") >= 0;
+
+		var ss_fps = ""; // superscript for FPS-related values
+		var ss_profile = ""; // superscript for profile-related values
+		var footnotes = [];
+		if (!u.AllFPSConfirmed)
+		{
+			if (is_helper_1_7_1_plus)
+			{
+				ss_fps = BuildSuperscript("†");
+				footnotes.push(GetFootnoteDiv("† There were issues collecting data from Blue Iris's web server. Field is expected to be inaccurate. Real value is likely lower."));
+			}
+			else
+			{
+				ss_fps = "*";
+				footnotes.push(GetFootnoteDiv("* Field may be inaccurate due to outdated BiUpdateHelper version. Real value may be lower."));
+			}
+		}
+		if (is_bi_5_plus) // Since BI 5, recording and trigger values must come from the current profile.
+		{
+			if (u.ProfileConfirmed || (u.HelperVersion === "1.7.0.0" && u.WebserverState > 0))
+			{
+				// Profile Okay
+			}
+			else
+			{
+				if (is_helper_1_7_plus)
+				{
+					ss_profile = BuildSuperscript("‡");
+					footnotes.push(GetFootnoteDiv("‡ There were issues collecting data from Blue Iris's web server. Field may be inaccurate."));
+				}
+				else
+				{
+					ss_profile = "**";
+					footnotes.push(GetFootnoteDiv("** Field may be inaccurate due to outdated BiUpdateHelper version."));
+				}
+			}
+		}
+
+		var footnoteHtml = footnotes.join("");
+
+		if (u.CameraCount === 0)
 			u.CameraCount = 1;
 		var sb = [];
 		if (isAdmin)
@@ -144,7 +188,6 @@
 		sb.push(MakeDLRow("Age of Record", msToTimeString(Date.now() - u.Timestamp)));
 		sb.push(MakeDLRow("Operating System", u.OS));
 		sb.push(MakeDLRow("Blue Iris Version", u.BiVersion));
-		var isBi5 = u.BiVersion && u.BiVersion.indexOf('5') === 0;
 		sb.push(MakeDLRow("Helper Version", u.HelperVersion));
 		var v2 = isV2(u.HelperVersion);
 		var v2_1 = isV2_1(u.HelperVersion);
@@ -165,7 +208,7 @@
 		sb.push('<h3 class="text-center">Memory</h3>');
 		sb.push('<dl class="dl-horizontal">');
 		sb.push(MakeDLRow("Physical Capacity", u.RamGiB + " GiB"));
-		sb.push(MakeDLRow("Memory Channels", (u.RamChannels == 0 ? "Unknown" : u.RamChannels), GetDimmLocationsTooltip(u.DimmLocations)));
+		sb.push(MakeDLRow("Memory Channels", (u.RamChannels === 0 ? "Unknown" : u.RamChannels), GetDimmLocationsTooltip(u.DimmLocations)));
 		sb.push(MakeDLRow("RAM Speed", u.RamMHz + " MHz"));
 		sb.push(MakeDLRow("System Memory", MB_To_MiB(u.MemMB, 1) + " MiB"));
 		sb.push(MakeDLRow("Memory (Free)", MB_To_MiB(u.MemFreeMB, 1) + " MiB"));
@@ -175,12 +218,12 @@
 		sb.push('<h3 class="text-center">Camera Overview</h3>');
 		sb.push('<dl class="dl-horizontal">');
 		sb.push(MakeDLRow("Hardware Acceleration", u.HwAccel));
-		sb.push(MakeDLRow("Megapixels / Second", u.Total_MPPS.toFixedLoose(1) + " MP/s"));
+		sb.push(MakeDLRow("Megapixels / Second", u.Total_MPPS.toFixedLoose(1) + " MP/s", null, ss_fps));
 		sb.push(MakeDLRow("Camera Count", u.CameraCount));
 		sb.push(MakeDLRow("Total Megapixels", u.Total_Megapixels.toFixedLoose(1) + " MP"));
 		sb.push(MakeDLRow("Average Megapixels", (u.Total_Megapixels / u.CameraCount).toFixedLoose(1) + " MP"));
-		sb.push(MakeDLRow("Total FPS", u.Total_FPS + " FPS"));
-		sb.push(MakeDLRow("Average FPS", (u.Total_FPS / u.CameraCount).toFixedLoose(1) + " FPS"));
+		sb.push(MakeDLRow("Total FPS", u.Total_FPS + " FPS", null, ss_fps));
+		sb.push(MakeDLRow("Average FPS", (u.Total_FPS / u.CameraCount).toFixedLoose(1) + " FPS", null, ss_fps));
 		sb.push('</dl>');
 		sb.push('<h3 class="text-center">GPU Details</h3>');
 		if (response.gpus.length > 0)
@@ -207,24 +250,24 @@
 			for (var i = 0; i < response.cameras.length; i++)
 			{
 				var c = response.cameras[i];
-				var type = c.Type == "ScreenCapture" ? (c.Type + " (" + c.ScreenCapType + ")") : c.Type;
+				var type = c.Type === "ScreenCapture" ? (c.Type + " (" + c.ScreenCapType + ")") : c.Type;
 				sb.push('<tr>');
 				sb.push('<td>' + type + '</td>');
 				sb.push('<td>' + (c.Pixels / 1000000).toFixedLoose(1) + '</td>');
-				sb.push('<td>' + c.FPS + '</td>');
+				sb.push('<td' + InaccurateClass(!c.FPSConfirmed) + '>' + c.FPS + (c.FPSConfirmed ? "" : ss_fps) + '</td>');
 				sb.push('<td>' + c.Hwaccel + '</td>');
 				sb.push('<td>' + c.LimitDecode + '</td>');
-				sb.push('<td>' + c.MotionDetector + '</td>');
-				sb.push('<td>' + c.RecordTriggerType + '</td>');
-				sb.push('<td>' + c.RecordFormat + '</td>');
-				if (isBi5 && cmpVersions(u.HelperVersion, "1.7") < 0)
-					sb.push('<td>Unknown</td>');
+				sb.push('<td' + InaccurateClass(ss_profile) + '>' + c.MotionDetector + ss_profile + '</td>');
+				sb.push('<td' + InaccurateClass(ss_profile) + '>' + c.RecordTriggerType + ss_profile + '</td>');
+				sb.push('<td' + InaccurateClass(ss_profile) + '>' + c.RecordFormat + ss_profile + '</td>');
+				if (is_bi_5_plus && !is_helper_1_7_plus)
+					sb.push('<td' + InaccurateClass(ss_profile) + '>Unknown' + ss_profile + '</td>');
 				else
-					sb.push('<td>' + c.DirectToDisk + '</td>');
+					sb.push('<td' + InaccurateClass(ss_profile) + '>' + c.DirectToDisk + ss_profile + '</td>');
 				if (c.DirectToDisk || c.RecordFormat === "WMV")
-					sb.push('<td>N/A</td>');
+					sb.push('<td' + InaccurateClass(ss_profile) + '>N/A' + ss_profile + '</td>');
 				else
-					sb.push('<td>' + EscapeHTML(c.VCodec) + '</td>');
+					sb.push('<td' + InaccurateClass(ss_profile) + '>' + EscapeHTML(c.VCodec) + ss_profile + '</td>');
 				sb.push('</tr>');
 			}
 			sb.push('</tbody>');
@@ -232,21 +275,32 @@
 		}
 		else
 			sb.push('<p>Unavailable</p>');
+		if (footnoteHtml)
+		{
+			sb.push('<h3 class="text-center">Footnotes</h3>');
+			sb.push('<p>' + footnoteHtml + '</p>');
+		}
 		return sb.join("");
 	}
-	function MakeDLRow(titleHtml, contentText, tooltip)
+	function MakeDLRow(titleHtml, contentText, tooltip, superscriptHtml)
 	{
 		if (tooltip)
-			return '<dt title="' + tooltip + '">' + titleHtml + '</dt><dd title="' + tooltip + '">' + EscapeHTML(contentText) + '</dd>';
+			tooltip = ' title="' + tooltip + '"';
 		else
-			return '<dt>' + titleHtml + '</dt><dd>' + EscapeHTML(contentText) + '</dd>';
+			tooltip = '';
+		if (!superscriptHtml)
+			superscriptHtml = '';
+		return '<dt' + tooltip + '>' + titleHtml + '</dt><dd' + tooltip + InaccurateClass(superscriptHtml) + '>' + EscapeHTML(contentText) + superscriptHtml + '</dd>';
 	}
-	function MakeDLRowHtml(titleHtml, contentHtml, tooltip)
+	function MakeDLRowHtml(titleHtml, contentHtml, tooltip, superscriptHtml)
 	{
 		if (tooltip)
-			return '<dt title="' + tooltip + '">' + titleHtml + '</dt><dd title="' + tooltip + '">' + contentHtml + '</dd>';
+			tooltip = ' title="' + tooltip + '"';
 		else
-			return '<dt>' + titleHtml + '</dt><dd>' + contentHtml + '</dd>';
+			tooltip = '';
+		if (!superscriptHtml)
+			superscriptHtml = '';
+		return '<dt' + tooltip + '>' + titleHtml + '</dt><dd' + tooltip + '>' + contentHtml + superscriptHtml + '</dd>';
 	}
 	function showModal(title, htmlOrEleContent)
 	{
@@ -264,11 +318,25 @@
 			+ '      </div>'
 			+ '    </div>'
 			+ '  </div>'
-			+ '</div>')
+			+ '</div>');
 		$modal.find("#myModalLabel").append(title);
 		$modal.find(".modal-body").append(htmlOrEleContent);
 		$('body').append($modal);
 		$modal.modal();
+	}
+	function InaccurateClass(enable)
+	{
+		return enable ? ' class="inaccurate"' : '';
+	}
+	function BuildSuperscript(superscriptHtml)
+	{
+		if (superscriptHtml)
+			return '<span class="superscript">' + superscriptHtml + '</span>';
+		return "";
+	}
+	function GetFootnoteDiv(footnoteHtml)
+	{
+		return '<div class="footnote">' + footnoteHtml + '</div>';
 	}
 	function RenderPercent(item, editable, fieldName)
 	{
@@ -291,22 +359,22 @@
 			return "Unknown";
 		if (item.ConsoleOpen)
 		{
-			if (item.ConsoleWidth == -2)
+			if (item.ConsoleWidth === -2)
 				txt = "Minimized";
 			else
 			{
 				txt = "Open";
-				if (item.ConsoleWidth == -1)
+				if (item.ConsoleWidth === -1)
 				{
 					//txt += "<br>[Resolution Unknown]";
 				}
 				else
 					txt += "<br>" + item.ConsoleWidth + "x" + item.ConsoleHeight;
-				if (item.LivePreviewFPS == -2)
+				if (item.LivePreviewFPS === -2)
 				{
 					//txt += "<br>[FPS Unlimited]";
 				}
-				else if (item.LivePreviewFPS == -1)
+				else if (item.LivePreviewFPS === -1)
 				{
 					//txt += "<br>[FPS Unknown]";
 				}
@@ -320,7 +388,7 @@
 	}
 	function RenderAge(item, editable, fieldName)
 	{
-		return msToRoughTimeString(Date.now() - item.Timestamp)
+		return msToRoughTimeString(Date.now() - item.Timestamp);
 	}
 	function RenderMBtoMiB(item, editable, fieldName)
 	{
@@ -332,11 +400,11 @@
 	}
 	function RenderRAM(item, editable, fieldName)
 	{
-		return (item.RamChannels == 0 ? "~" : item.RamChannels) + "/" + item.RamMHz;
+		return (item.RamChannels === 0 ? "~" : item.RamChannels) + "/" + item.RamMHz;
 	}
-	function RenderDec1(item, editable, fieldName)
+	function RenderMPPS(item, editable, fieldName)
 	{
-		return item[fieldName].toFixedLoose(1);
+		return (item.AllFPSConfirmed ? '<span class="accurate">' : '') + item[fieldName].toFixedLoose(1) + (item.AllFPSConfirmed ? '<span class="superscript">‡</span></span>' : '');
 	}
 	function DeleteRecord(ID)
 	{
@@ -344,7 +412,7 @@
 		{
 			ExecAPI("deleteRecord?id=" + ID, function (response)
 			{
-				if (response.result == "success")
+				if (response.result === "success")
 					SimpleDialog.text("Record " + ID + " Deleted", modalOptions);
 				else
 					SimpleDialog.html("Delete Record - ERROR<br>" + response.error, modalOptions);
@@ -357,7 +425,7 @@
 	Number.prototype.toFixedLoose = function (decimals)
 	{
 		return parseFloat(this.toFixed(decimals));
-	}
+	};
 	function cmpVersions(a, b)
 	{
 		var i, diff;
@@ -378,7 +446,7 @@
 	}
 	function isV2(version)
 	{
-		return version != "1.6.0.0" && version != "1.6.1.0";
+		return version !== "1.6.0.0" && version !== "1.6.1.0";
 	}
 	function isV2_1(version)
 	{
@@ -392,9 +460,9 @@
 			goodLabel = " " + goodLabel;
 		else
 			goodLabel = "";
-		if (value == -2)
+		if (value === -2)
 			return specialValue;
-		else if (value == -1)
+		else if (value === -1)
 			return "Unknown";
 		else
 			return value + goodLabel;
@@ -410,7 +478,7 @@
 	{
 		var B = MB * 1000000;
 		var MiB = B / 1048576;
-		if (typeof fixedPrecision == "number")
+		if (typeof fixedPrecision === "number")
 			return MiB.toFixed(fixedPrecision);
 		else
 			return MiB;
@@ -428,11 +496,11 @@
 		var d = Math.floor(totalD);
 
 		var retVal = "";
-		if (d != 0)
-			retVal += d + " day" + (d == 1 ? "" : "s") + ", ";
-		if (d != 0 || h != 0)
-			retVal += h + " hour" + (h == 1 ? "" : "s") + ", ";
-		retVal += m + " minute" + (m == 1 ? "" : "s");
+		if (d !== 0)
+			retVal += d + " day" + (d === 1 ? "" : "s") + ", ";
+		if (d !== 0 || h !== 0)
+			retVal += h + " hour" + (h === 1 ? "" : "s") + ", ";
+		retVal += m + " minute" + (m === 1 ? "" : "s");
 		return retVal;
 	}
 	function msToRoughTimeString(totalMs)
@@ -447,24 +515,59 @@
 		var h = Math.floor(totalH) % 24;
 		var d = Math.floor(totalD);
 
-		if (d != 0)
-			return d + " day" + (d == 1 ? "" : "s");
-		if (h != 0)
-			return h + " hour" + (h == 1 ? "" : "s");
-		if (m != 0)
-			return m + " minute" + (m == 1 ? "" : "s");
-		return s + " second" + (s == 1 ? "" : "s");
+		if (d !== 0)
+			return d + " day" + (d === 1 ? "" : "s");
+		if (h !== 0)
+			return h + " hour" + (h === 1 ? "" : "s");
+		if (m !== 0)
+			return m + " minute" + (m === 1 ? "" : "s");
+		return s + " second" + (s === 1 ? "" : "s");
 	}
 	var escape = document.createElement('textarea');
 	var EscapeHTML = function (html)
 	{
 		escape.textContent = html;
 		return escape.innerHTML;
-	}
+	};
 	var UnescapeHTML = function (html)
 	{
 		escape.innerHTML = html;
 		return escape.textContent;
+	};
+	/**
+	 * Encodes a string to be safely inserted into an attribute of an HTML element when writing literal HTML markup.
+	 * @param {String} value String to encode.
+	 * @returns {String} Encoded value.
+	 */
+	function htmlAttributeEncode(value)
+	{
+		var sb = new StringBuilder();
+		for (var i = 0; i < value.length; i++)
+		{
+			var c = value.charAt(i);
+			switch (c)
+			{
+				case '"':
+					sb.Append("&quot;");
+					break;
+				case "'":
+					sb.Append("&#39;");
+					break;
+				case "&":
+					sb.Append("&amp;");
+					break;
+				case "<":
+					sb.Append("&lt;");
+					break;
+				case ">":
+					sb.Append("&gt;");
+					break;
+				default:
+					sb.Append(c);
+					break;
+			}
+		}
+		return sb.ToString();
 	}
 	function ExecAPI(cmd, callbackSuccess, callbackFail)
 	{

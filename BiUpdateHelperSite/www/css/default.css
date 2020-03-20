@@ -2,11 +2,30 @@
 {
 	margin-bottom: 0px;
 }
+
 .baseContainer
 {
 	padding: 8px;
 }
+
 p.padded-info
 {
 	padding: 15px;
+}
+
+.superscript
+{
+	vertical-align: super;
+	font-size: 0.75em;
+}
+
+.accurate
+{
+	color: #009900;
+	font-weight: bold;
+}
+
+.inaccurate
+{
+	color: #990000;
 }

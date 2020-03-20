@@ -15,11 +15,16 @@ namespace BiUpdateHelperSite.UsageRecordUpload.v2
 		public short ConsoleWidth = -1;
 		public short ConsoleHeight = -1;
 		public short LivePreviewFPS = -1;
+		public byte webserverState = 0; // New in BiUpdateHelper 1.7
+		public bool ProfileConfirmed = false; // New in BiUpdateHelper 1.7.1
+		public new Upload_Camera[] cameras;
+		public new Upload_Gpu[] gpus;
 	}
 	public class Upload_Camera : v1.Upload_Camera
 	{
+		public bool FPSConfirmed; // New in BiUpdateHelper 1.7.1.0.
 	}
-	public class Upload_Gpu : v1.Upload_Camera
+	public class Upload_Gpu : v1.Upload_Gpu
 	{
 	}
 }

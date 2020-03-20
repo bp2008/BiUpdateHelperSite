@@ -20,5 +20,6 @@ namespace BiUpdateHelperSite
 		public string backupFtpUser = "";
 		public string backupFtpPass = "";
 		public long lastFtpBackupMs = 0;
+		public bool logVerbose = false;
 	}
 }

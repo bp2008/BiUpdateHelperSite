@@ -59,7 +59,7 @@
 							<div style="border: 1px solid #BBBBBB; border-radius: 5px; padding: 20px 0px;">
 								<ul>
 									<li>
-										Direct-to-disc recording became profile-specific in Blue Iris 5, and BiUpdateHelper has not been updated to read the new value.
+										Some settings such as Direct-to-disc recording became profile-specific in Blue Iris 5, and BiUpdateHelper older than 1.7 may not show these accurately.
 									</li>
 									<li>
 										Duplicated cameras in Blue Iris share resources, but this is not indicated in any way in the data here.  Therefore, a system with duplicated cameras will appear to be running a heavier load than it really is.
@@ -76,6 +76,9 @@
 								</ul>
 							</div>
 						</div>
+						<p>
+							* MP/s values in <span class="accurate">bold green with a double dagger ‡</span> are more likely to be accurate due to improvements made in BiUpdateHelper 1.7.1.0 and newer. (Duplicated cameras still cause inflated MP/s values)
+						</p>
 						<h2>Data</h2>
 						<div id="DataTableWrapper"></div>
 					</div>

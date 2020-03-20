@@ -29,6 +29,10 @@ namespace BiUpdateHelperSite.DB
 		/// </summary>
 		public byte FPS { get; set; }
 		/// <summary>
+		/// New in BiUpdateHelper 1.7.1.0.  True if the FPS came from the web server and is therefore reliable.
+		/// </summary>
+		public bool FPSConfirmed { get; set; }
+		/// <summary>
 		/// Only i-frames are decoded. "smartdecode" [0,1]
 		/// </summary>
 		public bool LimitDecode { get; set; }

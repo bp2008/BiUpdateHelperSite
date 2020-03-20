@@ -113,16 +113,20 @@ namespace BiUpdateHelperSite.DB
 			record.ConsoleWidth = obj.ConsoleWidth;
 			record.ConsoleHeight = obj.ConsoleHeight;
 			record.LivePreviewFPS = obj.LivePreviewFPS;
+			record.WebserverState = obj.webserverState;
+			record.ProfileConfirmed = obj.ProfileConfirmed;
+			record.AllFPSConfirmed = obj.cameras.All(c => c.FPSConfirmed);
 
 			// Cameras
 			List<Camera> cameras = new List<Camera>();
 			record.CameraCount = (byte)Math.Min(255, obj.cameras.Length);
 			record.Total_FPS = record.Total_Megapixels = record.Total_MPPS = 0;
-			foreach (var cam in obj.cameras)
+			foreach (UsageRecordUpload.v2.Upload_Camera cam in obj.cameras)
 			{
 				Camera camera = new Camera();
 				camera.Pixels = cam.Pixels;
 				camera.FPS = cam.FPS;
+				camera.FPSConfirmed = cam.FPSConfirmed;
 				camera.LimitDecode = cam.LimitDecode;
 				camera.Hwaccel = (HWAccelCamera)cam.Hwaccel;
 				camera.Type = (CameraType)cam.Type;

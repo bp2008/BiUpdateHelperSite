@@ -137,6 +137,18 @@ namespace BiUpdateHelperSite.DB
 		/// Megapixels per second being input into the system.
 		/// </summary>
 		public float Total_MPPS { get; set; }
+		/// <summary>
+		/// New in BiUpdateHelper 1.7.0.0.  Can be used to better determine which fields are accurate.  0: Failed to get things from web server. 1: Got all non-admin things. 2: Got all admin-requiring things.
+		/// </summary>
+		public byte WebserverState { get; set; }
+		/// <summary>
+		/// New in BiUpdateHelper 1.7.1.0.  Indicates that the profile number came from the web server so related settings can be considered reliable.  
+		/// </summary>
+		public bool ProfileConfirmed { get; set; }
+		/// <summary>
+		/// New since BiUpdateHelper 1.7.1.0.  Indicates that all FPS values came from the web server and can therefore be considered reliable.  
+		/// </summary>
+		public bool AllFPSConfirmed { get; set; }
 	}
 	public enum HWAccel : byte
 	{

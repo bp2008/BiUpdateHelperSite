@@ -32,6 +32,16 @@ namespace BiUpdateHelperSite
 			// Outgoing "secure" connections accept all certificates, for FTP backup
 			ServicePointManager.ServerCertificateValidationCallback = new RemoteCertificateValidationCallback(delegate { return true; });
 		}
+		public override bool IsTrustedProxyServer(IPAddress remoteIpAddress)
+		{
+			if (remoteIpAddress == null)
+			{
+				Try.Catch(() => throw new Exception("remoteIpAddress was null"));
+				return false;
+			}
+			string ip = remoteIpAddress.ToString();
+			return ip == "127.0.0.1" || ip == "::1";
+		}
 		private static bool IsAdmin(HttpProcessor p)
 		{
 			return p.RemoteIPAddressStr == MainStatic.settings.adminIp;

@@ -18,7 +18,7 @@ namespace BiUpdateHelperSite
 			settings.Load(SettingsPath);
 			settings.SaveIfNoExist(SettingsPath);
 
-			BPUtil.SimpleHttp.SimpleHttpLogger.RegisterLogger(BPUtil.Logger.httpLogger);
+			BPUtil.SimpleHttp.SimpleHttpLogger.RegisterLogger(BPUtil.Logger.httpLogger, settings.logVerbose);
 
 			if (!Environment.UserInteractive
 				//&& (Environment.OSVersion.Platform == PlatformID.Win32NT

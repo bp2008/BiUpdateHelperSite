@@ -23,7 +23,13 @@ namespace BiUpdateHelperSite
 		{
 			server?.Stop();
 			server = new WebServer(MainStatic.settings.webPort);
+			server.SocketBound += Server_SocketBound;
 			server.Start();
+		}
+
+		private void Server_SocketBound(object sender, string e)
+		{
+			Console.WriteLine(e);
 		}
 
 		protected override void OnStop()
