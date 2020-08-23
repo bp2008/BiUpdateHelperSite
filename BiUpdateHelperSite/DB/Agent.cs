@@ -125,6 +125,7 @@ namespace BiUpdateHelperSite.DB
 			{
 				Camera camera = new Camera();
 				camera.Pixels = cam.Pixels;
+				camera.MainPixels = cam.MainPixels;
 				camera.FPS = cam.FPS;
 				camera.FPSConfirmed = cam.FPSConfirmed;
 				camera.LimitDecode = cam.LimitDecode;

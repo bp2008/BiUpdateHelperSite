@@ -10,7 +10,7 @@ namespace BiUpdateHelperSite
 		public static Settings settings;
 		public const string SettingsPath = "SiteSettings.cfg";
 
-		public static void MainMethod()
+		public static void MainMethod(string[] args)
 		{
 			AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
 
@@ -19,22 +19,14 @@ namespace BiUpdateHelperSite
 			settings.SaveIfNoExist(SettingsPath);
 
 			BPUtil.SimpleHttp.SimpleHttpLogger.RegisterLogger(BPUtil.Logger.httpLogger, settings.logVerbose);
-
-			if (!Environment.UserInteractive
+			//bool gotServiceArg = (args.Length > 0 && args[0] == "svc");
+			bool gotCmdArg = (args.Length > 0 && args[0] == "cmd");
+			if (Environment.UserInteractive || gotCmdArg
 				//&& (Environment.OSVersion.Platform == PlatformID.Win32NT
 				//	|| Environment.OSVersion.Platform == PlatformID.Win32S
 				//	|| Environment.OSVersion.Platform == PlatformID.Win32Windows
 				//	|| Environment.OSVersion.Platform == PlatformID.WinCE)
 				)
-			{
-				ServiceBase[] ServicesToRun;
-				ServicesToRun = new ServiceBase[]
-				{
-				new MainSvc()
-				};
-				ServiceBase.Run(ServicesToRun);
-			}
-			else
 			{
 				MainSvc svc = new MainSvc();
 				svc.DoStart();
@@ -44,6 +36,10 @@ namespace BiUpdateHelperSite
 				}
 				while (Console.ReadLine().Trim().ToLower() != "exit");
 				svc.DoStop();
+			}
+			else
+			{
+				ServiceBase.Run(new MainSvc());
 			}
 		}
 

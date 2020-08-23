@@ -21,9 +21,13 @@ namespace BiUpdateHelperSite.DB
 		[Indexed]
 		public int UsageRecordID { get; set; }
 		/// <summary>
-		/// Precise number of pixels in one frame. "fullxres" * "fullyres"
+		/// Precise number of pixels in one frame. "fullxres" * "fullyres".  If [MainPixels] is nonzero, then [Pixels] refers to the sub stream.
 		/// </summary>
 		public int Pixels { get; set; }
+		/// <summary>
+		/// New in BiUpdateHelper 1.9.0.0.  Precise number of pixels in one main stream frame, if sub-streams are enabled.  This value is not used for MP/s calculations. "mainxres" * "mainyres".
+		/// </summary>
+		public int MainPixels { get; set; }
 		/// <summary>
 		/// Frame rate. From JSON API.
 		/// </summary>
@@ -100,6 +104,7 @@ namespace BiUpdateHelperSite.DB
 	{
 		Motion = 0,
 		Continuous = 1,
+		NoRecording = 2,
 		Periodic = 3,
 		TriggeredAndPeriodic = 4,
 		TriggeredAndContinuous = 5

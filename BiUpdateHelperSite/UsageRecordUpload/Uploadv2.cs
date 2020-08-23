@@ -23,6 +23,7 @@ namespace BiUpdateHelperSite.UsageRecordUpload.v2
 	public class Upload_Camera : v1.Upload_Camera
 	{
 		public bool FPSConfirmed; // New in BiUpdateHelper 1.7.1.0.
+		public int MainPixels; // New in BiUpdateHelper 1.9.0.0. If nonzero, the camera is believed to have a sub stream configured.
 	}
 	public class Upload_Gpu : v1.Upload_Gpu
 	{

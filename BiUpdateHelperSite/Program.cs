@@ -5,9 +5,9 @@
 		/// <summary>
 		/// The main entry point for the application.
 		/// </summary>
-		static void Main()
+		static void Main(string[] args)
 		{
-			MainStatic.MainMethod();
+			MainStatic.MainMethod(args);
 		}
 	}
 }

@@ -129,6 +129,7 @@
 
 		var is_helper_1_7_plus = cmpVersions(u.HelperVersion, "1.7") >= 0;
 		var is_helper_1_7_1_plus = cmpVersions(u.HelperVersion, "1.7.1") >= 0;
+		var is_helper_1_9_plus = cmpVersions(u.HelperVersion, "1.9") >= 0;
 		var is_bi_5_plus = u.BiVersion && cmpVersions(u.BiVersion, "5.0") >= 0;
 
 		var ss_fps = ""; // superscript for FPS-related values
@@ -244,8 +245,11 @@
 		sb.push('<h3 class="text-center">Camera Details</h3>');
 		if (response.cameras.length > 0)
 		{
+			var mpColumnHeads = "<th>Megapixels</th>";
+			if (is_helper_1_9_plus)
+				mpColumnHeads = '<th title="Main stream megapixels">Main MP</th><th title="Sub stream megapixels">Sub MP</th>';
 			sb.push('<div style="overflow-x: auto;"><table class="table">');
-			sb.push('<thead><tr><th>Type</th><th>Megapixels</th><th>FPS</th><th>Hardware Acceleration</th><th>Limit Decode</th><th>Motion Detection</th><th>Recording Trigger</th><th>Format</th><th>Direct-to-disc</th><th>Video Codec</th></tr></thead>');
+			sb.push('<thead><tr><th>Type</th>' + mpColumnHeads + '<th>FPS</th><th>Hardware Acceleration</th><th>Limit Decode</th><th>Motion Detection</th><th>Recording Trigger</th><th>Format</th><th>Direct-to-disc</th><th>Video Codec</th></tr></thead>');
 			sb.push('<tbody>');
 			for (var i = 0; i < response.cameras.length; i++)
 			{
@@ -253,7 +257,23 @@
 				var type = c.Type === "ScreenCapture" ? (c.Type + " (" + c.ScreenCapType + ")") : c.Type;
 				sb.push('<tr>');
 				sb.push('<td>' + type + '</td>');
-				sb.push('<td>' + (c.Pixels / 1000000).toFixedLoose(1) + '</td>');
+				if (is_helper_1_9_plus)
+				{
+					if (c.MainPixels > 0)
+					{
+						sb.push('<td>' + (c.MainPixels / 1000000).toFixedLoose(1) + '</td>');
+						sb.push('<td>' + (c.Pixels / 1000000).toFixedLoose(1) + '</td>');
+					}
+					else
+					{
+						sb.push('<td>' + (c.Pixels / 1000000).toFixedLoose(1) + '</td>');
+						sb.push('<td></td>');
+					}
+				}
+				else
+				{
+					sb.push('<td>' + (c.Pixels / 1000000).toFixedLoose(1) + '</td>');
+				}
 				sb.push('<td' + InaccurateClass(!c.FPSConfirmed) + '>' + c.FPS + (c.FPSConfirmed ? "" : ss_fps) + '</td>');
 				sb.push('<td>' + c.Hwaccel + '</td>');
 				sb.push('<td>' + c.LimitDecode + '</td>');
