@@ -18,9 +18,10 @@ namespace BiUpdateHelperSite
 	{
 		private long rnd = StaticRandom.Next(int.MinValue, int.MaxValue);
 		private Thread thrFtpBackup;
-		public WebServer(int port) : base(port)
+		private int port;
+		public WebServer(int port) : base()
 		{
-			//SendBufferSize = 65536;
+			this.port = port;
 			XRealIPHeader = true;
 			if (!string.IsNullOrWhiteSpace(MainStatic.settings.backupFtpPath))
 			{
@@ -32,7 +33,15 @@ namespace BiUpdateHelperSite
 			// Outgoing "secure" connections accept all certificates, for FTP backup
 			ServicePointManager.ServerCertificateValidationCallback = new RemoteCertificateValidationCallback(delegate { return true; });
 		}
-		public override bool IsTrustedProxyServer(IPAddress remoteIpAddress)
+		/// <summary>
+		/// Begins listening for incoming connections on the configured port.
+		/// </summary>
+		public void Start()
+		{
+			EnableLogging(MainStatic.settings.logVerbose);
+			SetBindings(httpPort: port);
+		}
+		public override bool IsTrustedProxyServer(HttpProcessor p, IPAddress remoteIpAddress)
 		{
 			if (remoteIpAddress == null)
 			{
@@ -48,12 +57,12 @@ namespace BiUpdateHelperSite
 		}
 		public override void handleGETRequest(HttpProcessor p)
 		{
-			string pageLower = p.requestedPage.ToLower();
+			string pageLower = p.Request.Page.ToLower();
 			//if (pageLower == "manualfix")
 			//{
 			//	if (IsAdmin(p))
 			//	{
-			//		p.writeSuccess("text/plain");
+			//		p.Response.FullResponseUTF8("", "text/plain");
 			//		try
 			//		{
 			//			Agent.RetroactiveFixData();
@@ -64,30 +73,23 @@ namespace BiUpdateHelperSite
 			//		}
 			//	}
 			//	else
-			//		p.writeFailure("403 Forbidden");
+			//		p.Response.Simple("403 Forbidden");
 			//}
 			if (pageLower.StartsWith("api/"))
 			{
-				p.writeFailure("405 Method Not Allowed");
+				p.Response.Simple("405 Method Not Allowed");
 			}
-			else if (p.requestedPage == "IP")
+			else if (p.Request.Page == "IP")
 			{
-				p.writeSuccess("text/plain");
-				p.outputStream.Write(p.RemoteIPAddressStr);
+				p.Response.FullResponseUTF8(p.RemoteIPAddressStr, "text/plain");
 			}
-			else if (p.requestedPage == "HEADERS")
+			else if (p.Request.Page == "HEADERS")
 			{
-				p.writeSuccess("text/plain");
-				p.outputStream.Write(string.Join(Environment.NewLine, p.httpHeadersRaw.Select(h => h.Key + ": " + h.Value)));
+				p.Response.FullResponseUTF8(string.Join(Environment.NewLine, p.Request.Headers.Select(h => h.Key + ": " + h.Value)), "text/plain");
 			}
-			else if (p.requestedPage == "IP")
+			else if (p.Request.Page == "")
 			{
-				p.writeSuccess("text/plain");
-				p.outputStream.Write(p.RemoteIPAddressStr);
-			}
-			else if (p.requestedPage == "")
-			{
-				p.writeRedirect("default.html");
+				p.Response.Redirect("default.html");
 			}
 			else
 			{
@@ -98,11 +100,11 @@ namespace BiUpdateHelperSite
 #endif
 				DirectoryInfo WWWDirectory = new DirectoryInfo(wwwPath);
 				string wwwDirectoryBase = WWWDirectory.FullName.Replace('\\', '/').TrimEnd('/') + '/';
-				FileInfo fi = new FileInfo(wwwDirectoryBase + p.requestedPage);
+				FileInfo fi = new FileInfo(wwwDirectoryBase + p.Request.Page);
 				string targetFilePath = fi.FullName.Replace('\\', '/');
 				if (!targetFilePath.StartsWith(wwwDirectoryBase) || targetFilePath.Contains("../"))
 				{
-					p.writeFailure("400 Bad Request");
+					p.Response.Simple("400 Bad Request");
 					return;
 				}
 				if (!fi.Exists)
@@ -114,53 +116,34 @@ namespace BiUpdateHelperSite
 					html = html.Replace("%%RND%%", rnd.ToString());
 					html = html.Replace("%%ADMIN%%", IsAdmin(p) ? "true" : "false");
 
-					byte[] data = Encoding.UTF8.GetBytes(html);
-					p.writeSuccess(Mime.GetMimeType(fi.Extension), data.Length);
-					p.outputStream.Flush();
-					p.tcpStream.Write(data, 0, data.Length);
-					p.tcpStream.Flush();
+					p.Response.FullResponseUTF8(html, Mime.GetMimeType(fi.Extension));
 				}
 				else
 				{
-					string mime = Mime.GetMimeType(fi.Extension);
+					StaticFileOptions options = null;
 					if (pageLower.StartsWith(".well-known/acme-challenge/"))
-						mime = "text/plain";
-					if (fi.LastWriteTimeUtc.ToString("R") == p.GetHeaderValue("if-modified-since"))
-					{
-						p.writeSuccess(mime, -1, "304 Not Modified");
-						return;
-					}
-					p.writeSuccess(mime, fi.Length, additionalHeaders: GetCacheLastModifiedHeaders(TimeSpan.FromHours(1), fi.LastWriteTimeUtc));
-					p.outputStream.Flush();
-					using (FileStream fs = fi.OpenRead())
-					{
-						fs.CopyTo(p.tcpStream);
-					}
-					p.tcpStream.Flush();
+						options = new StaticFileOptions() { ContentTypeOverride = "text/plain" };
+					p.Response.StaticFile(fi, options);
 				}
 			}
 		}
-		private List<KeyValuePair<string, string>> GetCacheLastModifiedHeaders(TimeSpan maxAge, DateTime lastModifiedUTC)
-		{
-			List<KeyValuePair<string, string>> additionalHeaders = new List<KeyValuePair<string, string>>();
-			additionalHeaders.Add(new KeyValuePair<string, string>("Cache-Control", "max-age=" + (long)maxAge.TotalSeconds + ", public"));
-			additionalHeaders.Add(new KeyValuePair<string, string>("Last-Modified", lastModifiedUTC.ToString("R")));
-			return additionalHeaders;
-		}
 
-		public override void handlePOSTRequest(HttpProcessor p, StreamReader inputData)
+		public override void handlePOSTRequest(HttpProcessor p)
 		{
-			string pageLower = p.requestedPage.ToLower();
+			string pageLower = p.Request.Page.ToLower();
 			if (pageLower.StartsWith("api/"))
 			{
-				string cmd = p.requestedPage.Substring("api/".Length);
+				string cmd = p.Request.Page.Substring("api/".Length);
 				switch (cmd)
 				{
 					case "uploadUsageRecord1":
 					case "uploadUsageRecord2":
 						{
 							// If this needs extended in the future, just make a new "case" with an incremented number.
-							string allUploaded = inputData.ReadToEnd();
+							MemoryStream bodyStream = p.Request.GetRequestBodyMemoryStreamSync();
+							if (bodyStream == null)
+								return;
+							string allUploaded = Encoding.UTF8.GetString(bodyStream.ToArray());
 							if (allUploaded.Length < 33)
 								return;
 							string md5 = allUploaded.Substring(allUploaded.Length - 32).ToLower();
@@ -168,18 +151,18 @@ namespace BiUpdateHelperSite
 							string md5Verify = Hash.GetMD5Hex(allUploaded);
 							if (md5 != md5Verify)
 							{
-								p.writeFailure("400 Bad Request");
+								p.Response.Simple("400 Bad Request");
 								return;
 							}
 							UsageRecordUpload.v2.Upload_Record record = JsonConvert.DeserializeObject<UsageRecordUpload.v2.Upload_Record>(allUploaded);
 							DB.Agent.AddUsageRecord(record);
-							p.writeSuccess("text/plain", 0);
+							p.Response.FullResponseUTF8("", "text/plain");
 						}
 						break;
 					case "getUsageRecords":
 						{
 							JSAPI.APIResponse response;
-							int detailsForId = p.GetIntParam("detailsForId", -1);
+							int detailsForId = p.Request.GetIntParam("detailsForId", -1);
 							if (detailsForId > -1)
 							{
 								UsageRecord record = Agent.GetUsageRecord(detailsForId);
@@ -207,13 +190,9 @@ namespace BiUpdateHelperSite
 								}
 							}
 							byte[] data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(response));
-							p.CompressResponseIfCompatible();
-							List<KeyValuePair<string, string>> additionalHeaders = new List<KeyValuePair<string, string>>();
-							additionalHeaders.Add(new KeyValuePair<string, string>("Cache-Control", "no-cache, no-store"));
-							p.writeSuccess("application/json", additionalHeaders: additionalHeaders);
-							p.outputStream.Flush();
-							p.tcpStream.Write(data, 0, data.Length);
-							p.tcpStream.Flush();
+							p.Response.FullResponseBytes(data, "application/json");
+							p.Response.Headers["Cache-Control"] = "no-cache, no-store";
+							p.Response.CompressResponseIfCompatible();
 						}
 						break;
 					case "deleteRecord":
@@ -223,7 +202,7 @@ namespace BiUpdateHelperSite
 								response = new JSAPI.APIResponse("Unauthorized");
 							else
 							{
-								int id = p.GetIntParam("id", -1);
+								int id = p.Request.GetIntParam("id", -1);
 								if (id < 0)
 									response = new JSAPI.APIResponse("Invalid ID");
 								else
@@ -236,10 +215,7 @@ namespace BiUpdateHelperSite
 								}
 							}
 							byte[] data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(response));
-							p.writeSuccess("application/json", data.Length);
-							p.outputStream.Flush();
-							p.tcpStream.Write(data, 0, data.Length);
-							p.tcpStream.Flush();
+							p.Response.FullResponseBytes(data, "application/json");
 						}
 						break;
 				}

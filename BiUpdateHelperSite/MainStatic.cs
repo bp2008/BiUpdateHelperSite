@@ -18,7 +18,6 @@ namespace BiUpdateHelperSite
 			settings.Load(SettingsPath);
 			settings.SaveIfNoExist(SettingsPath);
 
-			BPUtil.SimpleHttp.SimpleHttpLogger.RegisterLogger(BPUtil.Logger.httpLogger, settings.logVerbose);
 			//bool gotServiceArg = (args.Length > 0 && args[0] == "svc");
 			bool gotCmdArg = (args.Length > 0 && args[0] == "cmd");
 			if (Environment.UserInteractive || gotCmdArg
