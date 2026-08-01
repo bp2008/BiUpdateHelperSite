@@ -67,6 +67,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Bi6UpdateCheck\UpdateChecker.cs" />
+    <Compile Include="Bi6UpdateCheck\UpdateCheckResponse.cs" />
     <Compile Include="BugFixer.cs" />
     <Compile Include="JSAPI\APIResponse.cs" />
     <Compile Include="DB\Agent.cs" />

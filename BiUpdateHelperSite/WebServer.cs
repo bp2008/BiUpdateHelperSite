@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,6 +24,7 @@ namespace BiUpdateHelperSite
 		{
 			this.port = port;
 			XRealIPHeader = true;
+			MaxConnections = 128;
 			if (!string.IsNullOrWhiteSpace(MainStatic.settings.backupFtpPath))
 			{
 				thrFtpBackup = new Thread(ftpBackupLoop);
@@ -30,8 +32,50 @@ namespace BiUpdateHelperSite
 				thrFtpBackup.IsBackground = true;
 				thrFtpBackup.Start();
 			}
-			// Outgoing "secure" connections accept all certificates, for FTP backup
-			ServicePointManager.ServerCertificateValidationCallback = new RemoteCertificateValidationCallback(delegate { return true; });
+			// Outgoing "secure" connections tolerate certificate errors from the FTP backup server, but from no other host.
+			CertificateValidation.RegisterCallback(AllowBackupFtpServerCertificate);
+		}
+		/// <summary>
+		/// <para>A certificate validation callback which accepts the certificate of the configured FTP
+		/// backup server even when it is invalid, because that server is not expected to have a valid one.</para>
+		/// <para><see cref="CertificateValidation"/> already accepts any certificate which passes normal
+		/// validation, so this method only decides the fate of certificates which would otherwise be
+		/// rejected.  Every host other than the FTP backup server is left to normal validation; the Blue
+		/// Iris update check in particular carries private registration codes and must not be interceptable.</para>
+		/// </summary>
+		private static bool AllowBackupFtpServerCertificate(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
+		{
+			string requestHost = GetOutgoingRequestHost(sender);
+			string ftpHost = GetBackupFtpHost();
+			if (requestHost != null && ftpHost != null && requestHost.IEquals(ftpHost))
+				return true;
+			Logger.Debug("Not accepting the certificate presented by outgoing connection to \"" + (requestHost ?? "[unknown host]") + "\" (" + sslPolicyErrors + ")");
+			return false;
+		}
+		/// <summary>
+		/// Returns the host name which an outgoing TLS connection is being made to, or null if it could not be determined.
+		/// </summary>
+		/// <param name="sender">The sender argument given to <see cref="AllowBackupFtpServerCertificate"/>.</param>
+		private static string GetOutgoingRequestHost(object sender)
+		{
+			WebRequest request = sender as WebRequest;
+			if (request != null)
+				return request.RequestUri?.Host;
+			// Some TLS clients provide the host name directly instead of the request object.
+			return sender as string;
+		}
+		/// <summary>
+		/// Returns the host name of the configured FTP backup server, or null if FTP backup is not configured or the configured path is unusable.
+		/// </summary>
+		private static string GetBackupFtpHost()
+		{
+			string backupFtpPath = MainStatic.settings.backupFtpPath;
+			if (string.IsNullOrWhiteSpace(backupFtpPath))
+				return null;
+			Uri uri;
+			if (!Uri.TryCreate(backupFtpPath.Trim(), UriKind.Absolute, out uri))
+				return null;
+			return string.IsNullOrEmpty(uri.Host) ? null : uri.Host;
 		}
 		/// <summary>
 		/// Begins listening for incoming connections on the configured port.
@@ -75,7 +119,7 @@ namespace BiUpdateHelperSite
 			//	else
 			//		p.Response.Simple("403 Forbidden");
 			//}
-			if (pageLower.StartsWith("api/"))
+			if (pageLower.StartsWith("api/") || pageLower == "bi6_update_check")
 			{
 				p.Response.Simple("405 Method Not Allowed");
 			}
@@ -131,7 +175,15 @@ namespace BiUpdateHelperSite
 		public override void handlePOSTRequest(HttpProcessor p)
 		{
 			string pageLower = p.Request.Page.ToLower();
-			if (pageLower.StartsWith("api/"))
+			if (pageLower == "bi6_update_check")
+			{
+				// This API takes no arguments, so the request body (if any) is ignored.
+				p.Response.FullResponseUTF8(Bi6UpdateCheck.UpdateChecker.GetResponseJson(), "application/json");
+				p.Response.Headers["Access-Control-Allow-Origin"] = "*";
+				p.Response.Headers["Cache-Control"] = "no-cache, no-store";
+				p.Response.CompressResponseIfCompatible();
+			}
+			else if (pageLower.StartsWith("api/"))
 			{
 				string cmd = p.Request.Page.Substring("api/".Length);
 				switch (cmd)
@@ -220,6 +272,21 @@ namespace BiUpdateHelperSite
 						break;
 				}
 			}
+		}
+
+		public override void handleOtherRequest(HttpProcessor p, string method)
+		{
+			if (method == HttpMethods.OPTIONS && p.Request.Page.ToLower() == "bi6_update_check")
+			{
+				// CORS preflight, which browsers send if the caller sets a header such as "Content-Type".
+				p.Response.Simple("204 No Content");
+				p.Response.Headers["Access-Control-Allow-Origin"] = "*";
+				p.Response.Headers["Access-Control-Allow-Methods"] = "POST, OPTIONS";
+				p.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type";
+				p.Response.Headers["Access-Control-Max-Age"] = "86400";
+			}
+			else
+				base.handleOtherRequest(p, method);
 		}
 
 		protected override void stopServer()
