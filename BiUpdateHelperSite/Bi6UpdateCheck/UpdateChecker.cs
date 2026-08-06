@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using BPUtil;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace BiUpdateHelperSite.Bi6UpdateCheck
 {
@@ -31,6 +33,28 @@ namespace BiUpdateHelperSite.Bi6UpdateCheck
 		/// Date formats which have been observed in Blue Iris's update check response.
 		/// </summary>
 		private static readonly string[] dateFormats = new string[] { "M/d/yyyy", "M-d-yyyy" };
+		/// <summary>
+		/// Encoding used for all files written by this class.  UTF8 without a byte order mark, so that the
+		/// archived response files are plain text exactly as Blue Iris's server delivered them.
+		/// </summary>
+		private static readonly Encoding utf8NoBom = new UTF8Encoding(false);
+		/// <summary>
+		/// Directory where this class keeps its persistent state.  Like the settings file and the database,
+		/// this path is relative to the working directory.
+		/// </summary>
+		private static string DataDirectory => Globals.WritableDirectoryBase + "Bi6UpdateCheckData/";
+		/// <summary>
+		/// Path of the file which <see cref="lastSuccessfulResponse"/> is persisted to.
+		/// </summary>
+		private static string LastSuccessfulResponsePath => DataDirectory + "LastSuccessfulResponse.json";
+		/// <summary>
+		/// Directory where a copy of each distinct response body from Blue Iris's update check page is kept.
+		/// </summary>
+		private static string ArchiveDirectory => DataDirectory + "ResponseArchive/";
+		/// <summary>
+		/// Lock which serializes this class's file writes so that two background writes can't collide.
+		/// </summary>
+		private static readonly object diskLock = new object();
 
 		private static WebRequestUtility wru = new WebRequestUtility(userAgent, 30000);
 		/// <summary>
@@ -40,9 +64,68 @@ namespace BiUpdateHelperSite.Bi6UpdateCheck
 		/// </summary>
 		private static CachedObject<string> cachedResponse = new CachedObject<string>(BuildResponse, TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(65));
 		/// <summary>
-		/// The most recently built successful response, returned to callers if a later update check fails.
+		/// <para>The most recently built successful response, returned to callers if a later update check fails.</para>
+		/// <para>This is persisted to <see cref="LastSuccessfulResponsePath"/> and loaded again by
+		/// <see cref="Initialize"/>, so that the API can still respond with stale update information even if
+		/// the server is restarted while Blue Iris's update check page is down.</para>
 		/// </summary>
 		private static string lastSuccessfulResponse = null;
+		/// <summary>
+		/// The most recent response body from Blue Iris's update check page which has been written to the
+		/// archive.  Compared against each new response so that only changed responses are archived.
+		/// </summary>
+		private static string lastArchivedResponse = null;
+
+		/// <summary>
+		/// Loads this class's persistent state from disk.  Call this once during startup, before the web
+		/// server begins accepting requests, so that cached update information is available immediately.
+		/// This method does not throw.
+		/// </summary>
+		public static void Initialize()
+		{
+			try
+			{
+				if (File.Exists(LastSuccessfulResponsePath))
+				{
+					string json = File.ReadAllText(LastSuccessfulResponsePath, Encoding.UTF8);
+					// Only a successful response is ever written to this file, so anything else means the
+					// file is damaged and should not be served to callers.  The check is done with JObject
+					// because UpdateCheckResponse is a write-only model which JsonConvert can't construct.
+					JObject parsed = JObject.Parse(json);
+					if ((string)parsed["result"] == "success")
+						lastSuccessfulResponse = json;
+					else
+						Logger.Debug("bi6_update_check: Ignoring unusable cached response file \"" + LastSuccessfulResponsePath + "\"");
+				}
+			}
+			catch (Exception ex)
+			{
+				Logger.Debug(ex, "bi6_update_check");
+			}
+			try
+			{
+				FileInfo fiNewest = GetNewestArchiveFile();
+				if (fiNewest != null)
+					lastArchivedResponse = File.ReadAllText(fiNewest.FullName, Encoding.UTF8);
+			}
+			catch (Exception ex)
+			{
+				Logger.Debug(ex, "bi6_update_check");
+			}
+		}
+
+		/// <summary>
+		/// Returns the most recently written file from the response archive, or null if the archive is empty
+		/// or does not exist yet.  Archive file names begin with a fixed-width timestamp, so sorting them by
+		/// name sorts them by age.
+		/// </summary>
+		private static FileInfo GetNewestArchiveFile()
+		{
+			DirectoryInfo di = new DirectoryInfo(ArchiveDirectory);
+			if (!di.Exists)
+				return null;
+			return di.GetFiles("*.txt").OrderByDescending(fi => fi.Name, StringComparer.Ordinal).FirstOrDefault();
+		}
 
 		/// <summary>
 		/// Returns the JSON body to respond with.  This method does not throw.
@@ -90,12 +173,16 @@ namespace BiUpdateHelperSite.Bi6UpdateCheck
 				if (response.StatusCode != 200)
 					throw new Exception("Blue Iris update check responded with status code " + response.StatusCode, response.ex);
 
+				// Archived before parsing, so that responses which this class fails to make sense of are
+				// archived too.  Those are the ones most worth having a copy of.
+				ArchiveResponseIfChanged(response.str);
+
 				UpdateCheckData data = ParseUpdateCheckResponse(response.str);
 				if (data.newversions.Count == 0)
 					throw new Exception("Blue Iris update check response did not contain any version information.  The configured regcode and pccode may no longer be valid.");
 
 				string json = JsonConvert.SerializeObject(new UpdateCheckResponse(data));
-				lastSuccessfulResponse = json;
+				SetLastSuccessfulResponse(json);
 				return json;
 			}
 			catch (Exception ex)
@@ -107,6 +194,67 @@ namespace BiUpdateHelperSite.Bi6UpdateCheck
 					return lastGood;
 				return JsonConvert.SerializeObject(new UpdateCheckResponse("update check failed"));
 			}
+		}
+
+		/// <summary>
+		/// Assigns <see cref="lastSuccessfulResponse"/> and, if the value changed, begins writing it to disk
+		/// on a background thread so that the API call which triggered this update check is not delayed by
+		/// the file write.
+		/// </summary>
+		/// <param name="json">The JSON response body which was just built.</param>
+		private static void SetLastSuccessfulResponse(string json)
+		{
+			if (json == null || json == lastSuccessfulResponse)
+				return;
+			lastSuccessfulResponse = json;
+			SetTimeout.OnBackground(() =>
+			{
+				lock (diskLock)
+				{
+					// Whatever the current value is by the time the lock is acquired is the one worth having
+					// on disk, so a write which lost a race to a newer update check simply writes the newer
+					// response instead of overwriting it with older information.
+					string current = lastSuccessfulResponse;
+					if (current == null)
+						return;
+					Directory.CreateDirectory(DataDirectory);
+					// Written to a temporary file and moved into place so that a crash or a power loss during
+					// the write cannot leave a truncated file to be loaded at the next startup.
+					string tmpPath = LastSuccessfulResponsePath + ".tmp";
+					File.WriteAllText(tmpPath, current, utf8NoBom);
+					FileUtil.FileMove(tmpPath, LastSuccessfulResponsePath);
+				}
+			}, 0, ex => Logger.Debug(ex, "bi6_update_check"));
+		}
+
+		/// <summary>
+		/// <para>If the given response body differs from the most recently archived one, writes it to a new
+		/// file in <see cref="ArchiveDirectory"/> named after the current time.</para>
+		/// <para>The file is written on a background thread so that the API call which triggered this update
+		/// check is not delayed by it.</para>
+		/// </summary>
+		/// <param name="body">Response body from Blue Iris's update check page.</param>
+		private static void ArchiveResponseIfChanged(string body)
+		{
+			if (string.IsNullOrEmpty(body) || body == lastArchivedResponse)
+				return;
+			string fileNameBase = DateTime.UtcNow.ToString("yyyy-MM-dd HH-mm-ss", CultureInfo.InvariantCulture) + " UTC";
+			SetTimeout.OnBackground(() =>
+			{
+				lock (diskLock)
+				{
+					// Checked again here because the comparison above happened without the lock, and because
+					// this is the only place where a response counts as archived.
+					if (body == lastArchivedResponse)
+						return;
+					Directory.CreateDirectory(ArchiveDirectory);
+					string path = ArchiveDirectory + fileNameBase + ".txt";
+					for (int i = 2; File.Exists(path); i++)
+						path = ArchiveDirectory + fileNameBase + " (" + i + ").txt";
+					File.WriteAllText(path, body, utf8NoBom);
+					lastArchivedResponse = body;
+				}
+			}, 0, ex => Logger.Debug(ex, "bi6_update_check"));
 		}
 
 		/// <summary>
