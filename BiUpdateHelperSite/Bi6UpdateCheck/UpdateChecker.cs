@@ -34,6 +34,21 @@ namespace BiUpdateHelperSite.Bi6UpdateCheck
 		/// </summary>
 		private static readonly string[] dateFormats = new string[] { "M/d/yyyy", "M-d-yyyy" };
 		/// <summary>
+		/// Base URL of the news item PDFs which Blue Iris's news announcements link to.  The first field of
+		/// a News line is the number of the PDF, e.g. news item 3 is at ".../news/3.pdf".
+		/// </summary>
+		private const string newsUrlBase = "https://blueirissoftware.com/news/";
+		/// <summary>
+		/// <para>URL of the Blue Iris 6 changelog.</para>
+		/// <para>Blue Iris's update check page does not provide this URL, so it is hard-coded in order to
+		/// match what Blue Iris 6 itself answers the "updatecheck" command with.</para>
+		/// </summary>
+		private const string changelogUrl = "https://blueirissoftware.com/changelog6.pdf";
+		/// <summary>
+		/// Separator which Blue Iris 6 puts between the fields of a news line: two spaces.
+		/// </summary>
+		private const string newsFieldSeparator = "  ";
+		/// <summary>
 		/// Encoding used for all files written by this class.  UTF8 without a byte order mark, so that the
 		/// archived response files are plain text exactly as Blue Iris's server delivered them.
 		/// </summary>
@@ -289,13 +304,17 @@ namespace BiUpdateHelperSite.Bi6UpdateCheck
 					continue;
 				if (line.StartsWith("News=", StringComparison.OrdinalIgnoreCase))
 				{
-					// e.g. "News=2,6-24-2026,Upgrade to Version 6".  The meaning of the first two fields
-					// is unknown, so only the message text is used.
+					// e.g. "News=3,11-10-2026,Critical Security Updates".  The first field is the number of the
+					// news item's PDF, and the second is the date the news item was published.
 					foundData = true;
 					continuation = newsLines;
 					string[] parts = line.Substring("News=".Length).Split(new char[] { ',' }, 3);
-					if (parts.Length == 3 && parts[2].Trim().Length > 0)
-						newsLines.Add(parts[2].Trim());
+					if (parts.Length == 3)
+					{
+						string newsLine = BuildNewsLine(parts[0], parts[1], parts[2]);
+						if (newsLine != null)
+							newsLines.Add(newsLine);
+					}
 				}
 				else if (line.StartsWith("Version=", StringComparison.OrdinalIgnoreCase))
 				{
@@ -332,6 +351,7 @@ namespace BiUpdateHelperSite.Bi6UpdateCheck
 				versions[versions.Count - 2].stable = true;
 
 			UpdateCheckData data = new UpdateCheckData();
+			data.changelog_url = changelogUrl;
 			if (newsLines.Count > 0)
 				data.news = string.Join("\n", newsLines);
 
@@ -389,6 +409,62 @@ namespace BiUpdateHelperSite.Bi6UpdateCheck
 		}
 
 		/// <summary>
+		/// <para>Builds one line of the "news" string in the format Blue Iris 6 itself answers the
+		/// "updatecheck" command with: the date the news item was published, its headline, and the URL of
+		/// the news item's PDF, separated from each other by two spaces.  For example:</para>
+		/// <code>2026-11-10  Critical Security Updates  https://blueirissoftware.com/news/3.pdf</code>
+		/// <para>The date and the URL are each left out if the field they are built from is not usable, so a
+		/// news item whose headline is the only part of it which can be made sense of still produces that
+		/// headline.</para>
+		/// </summary>
+		/// <param name="idField">First field of the News line: the number of the news item's PDF.</param>
+		/// <param name="dateField">Second field of the News line: the date the news item was published.</param>
+		/// <param name="messageField">Third field of the News line: the headline.</param>
+		/// <returns>The news line, or null if there was nothing usable to build it out of.</returns>
+		private static string BuildNewsLine(string idField, string dateField, string messageField)
+		{
+			List<string> fields = new List<string>();
+			DateTime date;
+			if (TryParseDate(dateField, out date))
+				fields.Add(date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+			string message = messageField.Trim();
+			if (message.Length > 0)
+				fields.Add(message);
+			string id = idField.Trim();
+			if (IsNewsItemNumber(id))
+				fields.Add(newsUrlBase + id + ".pdf");
+			if (fields.Count == 0)
+				return null;
+			return string.Join(newsFieldSeparator, fields);
+		}
+
+		/// <summary>
+		/// Returns true if the given string is the number of a news item, meaning it is made of 1 to 5
+		/// digits and is not zero.
+		/// </summary>
+		/// <param name="str">First field of a News line from Blue Iris's update check response.</param>
+		private static bool IsNewsItemNumber(string str)
+		{
+			if (str.Length == 0 || str.Length > 5)
+				return false;
+			foreach (char c in str)
+				if (c < '0' || c > '9')
+					return false;
+			return str.TrimStart('0').Length > 0;
+		}
+
+		/// <summary>
+		/// Parses a date such as "6/30/2026" into a <see cref="DateTime"/>, returning false if the date could
+		/// not be parsed.  The returned value carries no time zone; only its date part is meaningful.
+		/// </summary>
+		/// <param name="str">Date string from Blue Iris's update check response.</param>
+		/// <param name="date">(Output) The parsed date.</param>
+		private static bool TryParseDate(string str, out DateTime date)
+		{
+			return DateTime.TryParseExact(str.Trim(), dateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out date);
+		}
+
+		/// <summary>
 		/// Parses a date such as "6/30/2026", returning the number of milliseconds since the Unix Epoch
 		/// (1970/1/1 midnight UTC), or null if the date could not be parsed.
 		/// </summary>
@@ -396,7 +472,7 @@ namespace BiUpdateHelperSite.Bi6UpdateCheck
 		private static long? ParseDate(string str)
 		{
 			DateTime date;
-			if (DateTime.TryParseExact(str.Trim(), dateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out date))
+			if (TryParseDate(str, out date))
 				return TimeUtil.GetTimeInMsSinceEpoch(new DateTime(date.Year, date.Month, date.Day, 0, 0, 0, DateTimeKind.Utc));
 			return null;
 		}

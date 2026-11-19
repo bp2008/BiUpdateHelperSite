@@ -61,8 +61,9 @@ namespace BiUpdateHelperSite.Bi6UpdateCheck
 	/// server checks updates with, and that has nothing to do with whoever is calling this API, so it
 	/// would be misleading to pass it along.  Omitting "maintenance_expire" makes the caller skip the
 	/// license renewal warnings entirely, which in turn makes "maintenance_purchase_link" pointless.</para>
-	/// <para>The "changelog_url" field is not implemented either, because Blue Iris's update check page
-	/// does not provide one.  Callers are expected to fall back on their own default.</para>
+	/// <para>The "changelog_url" field is not provided by Blue Iris's update check page either, so the
+	/// URL of the Blue Iris 6 changelog is hard-coded.  It is the same URL Blue Iris 6 itself answers
+	/// the "updatecheck" command with.</para>
 	/// </summary>
 	public class UpdateCheckData
 	{
@@ -71,6 +72,12 @@ namespace BiUpdateHelperSite.Bi6UpdateCheck
 		/// </summary>
 		[JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
 		public string news;
+		/// <summary>
+		/// URL of the Blue Iris changelog.  Null if unknown, in which case the caller is expected to fall
+		/// back on its own default.
+		/// </summary>
+		[JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+		public string changelog_url;
 		/// <summary>
 		/// The list of available versions, in the order Blue Iris listed them.
 		/// </summary>
