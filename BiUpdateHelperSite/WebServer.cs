@@ -291,7 +291,9 @@ namespace BiUpdateHelperSite
 
 		protected override void stopServer()
 		{
-			Try.Catch(() => { thrFtpBackup?.Abort(); });
+			// Thread.Abort does not exist on .NET 8, so the backup thread is interrupted instead, which
+			// raises ThreadInterruptedException out of whichever Thread.Sleep it is currently sitting in.
+			Try.Catch(() => { thrFtpBackup?.Interrupt(); });
 		}
 
 		private void ftpBackupLoop()
@@ -314,7 +316,7 @@ namespace BiUpdateHelperSite
 							DoFtpBackupNow();
 						}
 					}
-					catch (ThreadAbortException) { throw; }
+					catch (ThreadInterruptedException) { throw; }
 					catch (Exception ex)
 					{
 						Logger.Debug(ex, "ftpBackup inner loop");
@@ -322,7 +324,7 @@ namespace BiUpdateHelperSite
 					}
 				}
 			}
-			catch (ThreadAbortException) { }
+			catch (ThreadInterruptedException) { }
 			catch (Exception ex)
 			{
 				Logger.Debug(ex, "ftpBackup outer loop");
