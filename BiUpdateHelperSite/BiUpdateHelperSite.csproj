@@ -49,6 +49,12 @@
 	<ItemGroup>
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 		<!--
+			Reads Blue Iris's changelog PDF for the "/changelog" page.  Apache-2.0, entirely managed, with
+			no native assets and no transitive dependencies, so a framework-dependent linux-arm64 publish
+			of this project gains seven managed assemblies (5.7 MB) and no "runtimes/" folder.
+		-->
+		<PackageReference Include="PdfPig" Version="0.1.16" />
+		<!--
 			The native SQLite library.  DB\SQLite.cs (sqlite-net) declares its P/Invokes against the library
 			name "sqlite3"; DB\SqliteNative.cs redirects that name to the "e_sqlite3" library provided by this
 			package.  This package carries a build for every platform, linux-arm64 included, which is why the

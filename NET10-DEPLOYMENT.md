@@ -54,8 +54,34 @@ BPUtil's `AppInit` owning the service lifetime on both platforms.
   `[assembly: SupportedOSPlatform("windows7.0")]` under `#if !LINUX`, which the SDK would have emitted
   itself if this project generated its assembly attributes.
 
-Nothing about the HTTP endpoints, the JSON they return, the `SiteSettings.cfg` format or the database
-schema changed.
+Nothing about the `bi6_update_check` API, the JSON it returns, the `SiteSettings.cfg` format or the
+database schema changed.
+
+## Endpoints added since the mono build
+
+Two pages for a person to read, both GET-only and both answering `405 Method Not Allowed` to a POST,
+exactly as a GET of the JSON API does:
+
+* **`GET /updates`** — the update information the `bi6_update_check` API answers with, rendered as a
+  page.  Built fresh per request and served `Cache-Control: no-cache, no-store`.
+* **`GET /changelog`** — Blue Iris's changelog, which Blue Iris publishes as a PDF, converted to HTML
+  in this process by `ChangelogHtml/`.  `PdfPig` (Apache-2.0, entirely managed) walks the PDF's
+  logical structure tree, so the page keeps the headings, lists, tables and links; each release is a
+  collapsible `<details>` which defaults to open.  The page is served `Cache-Control: no-cache` with
+  an `ETag` derived from the identity of the PDF, and a conditional request is answered `304`.
+  "no-cache" means revalidate, not "do not store": the point of the page is that mobile browsers go
+  on serving a stale copy of the PDF for days, so a stale copy of this page must not be served blind
+  either.
+
+  The PDF is fetched at most **once a minute** however many visitors arrive
+  (`ChangelogHtmlCache.minSecondsBetweenFetches`, the one number to change), conditionally with
+  `If-None-Match`, so an unchanged PDF costs a 304 and no body.  The URL carries a cache-busting
+  query parameter which changes once per fetch window, because the origin sits behind Cloudflare with
+  `max-age=14400` and Cloudflare's cache key includes the query string; without it a newly published
+  changelog could be invisible for up to four hours.  A visitor never waits for Blue Iris's server
+  unless there is nothing at all to serve yet, and if the conversion ever fails the page degrades in
+  three steps: the last good HTML, then the PDF's text in a `<pre>`, then a page which only links to
+  the PDF.
 
 ## !! The data directory moves !!
 
@@ -68,6 +94,13 @@ otherwise the service will not find them and will create a fresh, empty database
 `Logs/` subdirectory inside it, so after this move everything the service reads and writes is in one
 place — which also removes the old failure mode where the error log silently went nowhere because the
 directory did not exist.
+
+`ChangelogHtmlCache/` is created there too, the first time the `/changelog` page converts the PDF.
+It holds `LastGood.html` (the converted page) and `LastGood.json` (which PDF it was converted from,
+and the validators to revalidate that PDF with), both written to a temporary file and moved into
+place.  Nothing needs to be migrated into it: it is rebuilt on demand, so deleting it costs one
+conversion.  Copying it to a new deployment is still worth doing, because then the first visitor
+after the move is served without waiting.
 
 `Globals.InitializeCommonApplicationData("BiUpdateHelperSite")` is called before `AppInit`, so the
 directory is named after the program and not after the assembly.  Without it the Linux build would use
@@ -91,10 +124,13 @@ Publish **framework-dependent** for the server:
 dotnet publish BiUpdateHelperSite/BiUpdateHelperSite.csproj -c Release -f net10.0 -r linux-arm64 --self-contained false
 ```
 
-That is 5.2 MB / 35 files in `BiUpdateHelperSite/bin/Release/net10.0/linux-arm64/publish/`, with an
-aarch64 `BiUpdateHelperSiteLinux` apphost, `libe_sqlite3.so` beside it, and `www/`.  Dropping `-r`
-also works and produces a portable publish (44 MB), which carries every platform's native SQLite under
-`runtimes/`; the RID-specific publish is smaller and is the recommended one.
+That is 10.6 MB / 42 files in `BiUpdateHelperSite/bin/Release/net10.0/linux-arm64/publish/`, with an
+aarch64 `BiUpdateHelperSiteLinux` apphost, `libe_sqlite3.so` beside it, and `www/`.  (It was 5.2 MB /
+35 files before `PdfPig`, which adds seven managed assemblies and 5.7 MB.)  There is **no `runtimes/`
+folder** and `libe_sqlite3.so` is the only native file in the publish: `PdfPig` ships no native assets
+at all, so it needs nothing installed on the server.  Dropping `-r` also works and produces a portable
+publish, which carries every platform's native SQLite under `runtimes/`; the RID-specific publish is
+smaller and is the recommended one.
 
 Self-contained is not needed: Ubuntu 24.04 arm64 offers `dotnet-runtime-10.0` (10.0.15) from
 noble-updates and noble-security, so
@@ -192,6 +228,22 @@ On .NET 10.0.12, against copies of the real `UsageDb.s3db` (2697 records) and `U
 * Feeding `UpdateChecker`'s own documented sample response through `ParseUpdateCheckResponse`
   produces exactly the documented success JSON.  That was measured on the `net8.0` build; neither
   `Bi6UpdateCheck` nor the JSON types have changed since.
+* **`/changelog`, against the real PDF**, through the same harness: a cold cache fetched and converted
+  in 1.6 s and answered 200 with 131 `<h2>`, 473 `<li>`, 2 tables and no `data-pdf-tag`; five rapid
+  requests after it were answered from memory in 1–3 ms, byte-for-byte identical and with no outbound
+  request; a request carrying the served `ETag` was answered `304` with no body; a stale `ETag` got
+  the page; `POST /changelog` answered 405; and `/updates` links to it while keeping its own
+  cache-busting `?t=` on the PDF link.
+* **The once-a-minute floor**: 4,816 calls to the page over 150 seconds produced exactly 3 requests to
+  Blue Iris, at 0.6 s, 61.1 s and 121.8 s.  Each was conditional and answered `304`, so nothing was
+  downloaded or converted again.
+* **The conversion itself**: 68,725 of the PDF's 68,741 glyphs emitted (the 16 are bullet characters
+  a CSS list marker draws instead), 54 pages in 607 ms with a 109 MB peak working set, 113 KB of HTML.
+* **The degraded tiers**: a valid but untagged 30-page PDF produced the text tier (99 KB, with its
+  explanatory notice); 20 KB of garbage with a PDF header produced no page at all, which is what makes
+  the caller keep serving the last good one; and the link-only page renders at 4.7 KB.
+* Both target frameworks still build with **0 warnings** with `PdfPig` referenced, and the
+  `linux-arm64` publish gained no `runtimes/` folder and no native assets.
 
 Not verified:
 

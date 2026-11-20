@@ -69,6 +69,11 @@ namespace BiUpdateHelperSite
 			// Loads cached Blue Iris update information from disk so that the "bi6_update_check" API has
 			// something to answer with even if Blue Iris's server is unreachable right now.
 			Bi6UpdateCheck.UpdateChecker.Initialize();
+
+			// Loads the converted changelog from disk so that the "/changelog" page can answer the first
+			// request without waiting for Blue Iris's server, and so that a restart does not throw away a
+			// conversion which is still current.
+			ChangelogHtml.ChangelogHtmlCache.Initialize();
 			server?.Stop();
 			server = new WebServer(MainStatic.settings.webPort);
 			server.SocketBound += Server_SocketBound;

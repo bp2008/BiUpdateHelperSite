@@ -144,6 +144,34 @@ namespace BiUpdateHelperSite
 				p.Response.Headers["Cache-Control"] = "no-cache, no-store";
 				p.Response.CompressResponseIfCompatible();
 			}
+			else if (pageLower == "changelog")
+			{
+				// Blue Iris's changelog, which Blue Iris publishes as a PDF, converted to a web page.
+				// Whether this is answered from memory, from disk or from a fresh conversion is
+				// ChangelogHtmlCache's business; it waits for Blue Iris's server only when there is
+				// nothing at all to serve yet.
+				ChangelogHtml.ChangelogPage page = ChangelogHtml.ChangelogHtmlCache.GetPage();
+				if (page.ETag != null && RequestMatchesETag(p, page.ETag))
+				{
+					p.Response.Simple("304 Not Modified");
+					p.Response.Headers["ETag"] = page.ETag;
+					p.Response.Headers["Cache-Control"] = "no-cache";
+				}
+				else
+				{
+					p.Response.FullResponseUTF8(page.Html, "text/html; charset=utf-8");
+					if (page.ETag != null)
+						p.Response.Headers["ETag"] = page.ETag;
+					// "no-cache" means "you may store this, but revalidate before using it", which is not
+					// the same thing as "no-store".  It is deliberate, and it is most of the reason this
+					// page exists: mobile browsers go on serving a stale cached copy of Blue Iris's PDF
+					// for days, so a cached copy of this page must never be served blind either.
+					// Revalidating is cheap, because the ETag above is derived from the identity of the
+					// PDF and so does not change until the PDF does.
+					p.Response.Headers["Cache-Control"] = "no-cache";
+					p.Response.CompressResponseIfCompatible();
+				}
+			}
 			else if (p.Request.Page == "IP")
 			{
 				p.Response.FullResponseUTF8(p.RemoteIPAddressStr, "text/plain");
@@ -193,6 +221,34 @@ namespace BiUpdateHelperSite
 			}
 		}
 
+		/// <summary>
+		/// <para>Returns true if the request's "If-None-Match" header says that the client already has
+		/// the response which carries the given ETag.</para>
+		/// <para>The header is a comma-separated list, any entry of which may be marked as a weak
+		/// validator with a "W/" prefix, and "*" matches anything.  Weak and strong comparison amount to
+		/// the same thing here, because this page has no representation which differs only weakly: its
+		/// ETag is derived from the identity of the PDF the page was built from.</para>
+		/// </summary>
+		/// <param name="p">The request being answered.</param>
+		/// <param name="eTag">The ETag of the response, quoted.</param>
+		private static bool RequestMatchesETag(HttpProcessor p, string eTag)
+		{
+			string ifNoneMatch = p.Request.Headers.Get("If-None-Match");
+			if (string.IsNullOrWhiteSpace(ifNoneMatch))
+				return false;
+			foreach (string candidate in ifNoneMatch.Split(','))
+			{
+				string value = candidate.Trim();
+				if (value == "*")
+					return true;
+				if (value.StartsWith("W/", StringComparison.Ordinal))
+					value = value.Substring(2).Trim();
+				if (value == eTag)
+					return true;
+			}
+			return false;
+		}
+
 		public override void handlePOSTRequest(HttpProcessor p)
 		{
 			string pageLower = p.Request.Page.ToLower();
@@ -204,9 +260,9 @@ namespace BiUpdateHelperSite
 				p.Response.Headers["Cache-Control"] = "no-cache, no-store";
 				p.Response.CompressResponseIfCompatible();
 			}
-			else if (pageLower == "updates")
+			else if (pageLower == "updates" || pageLower == "changelog")
 			{
-				// The "/updates" page is a GET-only page, answered the same way a GET of the JSON API is.
+				// These are GET-only pages, answered the same way a GET of the JSON API is.
 				p.Response.Simple("405 Method Not Allowed");
 			}
 			else if (pageLower.StartsWith("api/"))

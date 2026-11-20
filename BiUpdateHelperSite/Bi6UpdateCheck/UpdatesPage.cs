@@ -211,8 +211,8 @@ namespace BiUpdateHelperSite.Bi6UpdateCheck
 			url += (url.IndexOf('?') >= 0 ? "&" : "?") + "t=" + nowMs.ToString(CultureInfo.InvariantCulture);
 
 			sb.Append("<h2>Changelog</h2>\n<div class=\"card\">\n");
-			sb.Append("<p>Blue Iris publishes what changed in each version as a single PDF.</p>\n");
-			sb.Append("<p><a class=\"button\" href=\"").Append(Attr(url)).Append("\" target=\"_blank\" rel=\"noopener noreferrer\">Open the Blue Iris 6 changelog (PDF)</a></p>\n");
+			sb.Append("<p>Blue Iris publishes what changed in each version as a single PDF.  This server also serves that PDF converted to a web page, which reads better on a phone.</p>\n");
+			sb.Append("<p><a class=\"button\" href=\"changelog\">Read the changelog as a web page</a> <a class=\"button\" href=\"").Append(Attr(url)).Append("\" target=\"_blank\" rel=\"noopener noreferrer\">Open the Blue Iris 6 changelog (PDF)</a></p>\n");
 			sb.Append("</div>\n");
 		}
 
