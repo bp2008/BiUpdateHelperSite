@@ -1,7 +1,6 @@
 ﻿using System;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.ServiceProcess;
 using System.Threading;
 using BPUtil;
 
@@ -31,19 +30,22 @@ namespace BiUpdateHelperSite
 			// in this process and waits here until it is asked to shut down.
 			if (!gotCmdArg && !Environment.UserInteractive && OperatingSystem.IsWindows())
 			{
-				ServiceBase.Run(new MainSvc());
+				// Deliberately an indirect call into a type of its own.  System.ServiceProcess is not
+				// usable off Windows, so this method must not name any type from it; see
+				// WindowsServiceHost for the detail.
+				WindowsServiceHost.Run();
 			}
 			else
 			{
-				MainSvc svc = new MainSvc();
-				svc.DoStart();
+				SiteService svc = new SiteService();
+				svc.Start();
 				try
 				{
 					WaitForShutdownRequest();
 				}
 				finally
 				{
-					svc.DoStop();
+					svc.Stop();
 				}
 			}
 		}

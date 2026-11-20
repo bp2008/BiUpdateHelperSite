@@ -1,0 +1,9 @@
+# DB/SQLite.cs is sqlite-net, third-party code kept exactly as it was received.  Rules which would
+# mean diverging from upstream for no benefit are turned off for this one file rather than for the
+# whole project.
+#
+# CA2200: "Re-throwing caught exception changes stack information" -- there is one such rethrow.
+# SYSLIB0054: Thread.VolatileRead/VolatileWrite are obsolete in favour of Volatile.Read/Write.
+[DB/SQLite.cs]
+dotnet_diagnostic.CA2200.severity = none
+dotnet_diagnostic.SYSLIB0054.severity = none

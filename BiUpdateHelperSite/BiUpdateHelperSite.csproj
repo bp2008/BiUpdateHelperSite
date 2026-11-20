@@ -2,7 +2,7 @@
 
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
-		<TargetFramework>net8.0</TargetFramework>
+		<TargetFramework>net10.0</TargetFramework>
 		<RootNamespace>BiUpdateHelperSite</RootNamespace>
 		<AssemblyName>BiUpdateHelperSite</AssemblyName>
 		<!-- Properties\AssemblyInfo.cs is kept, so the SDK must not generate a second set of assembly attributes. -->
@@ -11,11 +11,10 @@
 		<ImplicitUsings>disable</ImplicitUsings>
 		<Configurations>Debug;Release</Configurations>
 		<!--
-			CA1416: System.ServiceProcess types are Windows-only.  The calls into them are guarded at runtime.
-			SYSLIB0014: WebClient is obsolete.  It is still the FTP client used by the weekly database backup.
-			CA2200: A rethrow in DB\SQLite.cs, which is third-party code kept as it was received.
+			CA2200: A rethrow in DB\SQLite.cs, which is third-party code kept as it was received.  It is
+			suppressed for that one file rather than for the project, in .editorconfig.
+			SYSLIB0014 (WebClient is obsolete) is suppressed around the one use of it, in WebServer.cs.
 		-->
-		<NoWarn>$(NoWarn);CA1416;SYSLIB0014;CA2200</NoWarn>
 		<!-- The arm64 Linux server this is deployed to, plus the Windows machine it is developed on. -->
 		<RuntimeIdentifiers>linux-arm64;linux-x64;win-x64</RuntimeIdentifiers>
 	</PropertyGroup>

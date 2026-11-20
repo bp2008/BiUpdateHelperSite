@@ -33,8 +33,18 @@ namespace BiUpdateHelperSite
 				thrFtpBackup.Start();
 			}
 			// Outgoing "secure" connections tolerate certificate errors from the FTP backup server, but from no other host.
+#if !NET10_0_OR_GREATER
 			CertificateValidation.RegisterCallback(AllowBackupFtpServerCertificate);
+#else
+			// .NET 10 removed ServicePointManager.ServerCertificateValidationCallback, which is what
+			// BPUtil's CertificateValidation wrapped, so there is no longer anywhere to register a
+			// callback for outgoing connections made through WebRequest.  Nothing is lost in practice:
+			// WebClient, which is the only outgoing client this matters for, speaks plaintext ftp:// and
+			// so is never presented with a certificate.  Everything else here goes through BPUtil's
+			// WebRequestUtility, which is built on HttpClient and was never covered by this callback.
+#endif
 		}
+#if !NET10_0_OR_GREATER
 		/// <summary>
 		/// <para>A certificate validation callback which accepts the certificate of the configured FTP
 		/// backup server even when it is invalid, because that server is not expected to have a valid one.</para>
@@ -77,6 +87,7 @@ namespace BiUpdateHelperSite
 				return null;
 			return string.IsNullOrEmpty(uri.Host) ? null : uri.Host;
 		}
+#endif
 		/// <summary>
 		/// Begins listening for incoming connections on the configured port.
 		/// </summary>
@@ -331,6 +342,9 @@ namespace BiUpdateHelperSite
 			}
 		}
 
+		// WebClient is obsolete on modern .NET (SYSLIB0014), but it is still the only FTP client in
+		// the base class library, and this is the only place which uses it.
+#pragma warning disable SYSLIB0014
 		private void DoFtpBackupNow()
 		{
 			using (WebClient wc = new WebClient())
@@ -350,5 +364,6 @@ namespace BiUpdateHelperSite
 				MainStatic.settings.Save(MainStatic.SettingsPath);
 			}
 		}
+#pragma warning restore SYSLIB0014
 	}
 }

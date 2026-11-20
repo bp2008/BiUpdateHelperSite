@@ -39,10 +39,11 @@ namespace BiUpdateHelperSite.DB
 			{
 				if (initialized)
 					return;
-				initialized = true;
 				// sqlite-net is compiled into this assembly, so this is the assembly whose imports need resolving.
 				Assembly assembly = typeof(SQLite.SQLiteConnection).Assembly;
 				NativeLibrary.SetDllImportResolver(assembly, Resolve);
+				// Set last, so that a failure here is not silently turned into a no-op by a later call.
+				initialized = true;
 			}
 		}
 
