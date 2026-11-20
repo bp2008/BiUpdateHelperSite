@@ -159,6 +159,37 @@ namespace BiUpdateHelperSite.Bi6UpdateCheck
 		}
 
 		/// <summary>
+		/// <para>Returns the same update information <see cref="GetResponseJson"/> answers with, as objects
+		/// instead of as a JSON string, for callers which render it rather than serve it.</para>
+		/// <para>The JSON body is the authoritative form, because it is what is cached in memory and
+		/// persisted to disk, so this method reads that body back rather than keeping a second copy of the
+		/// update information in another shape which could drift out of step with it.</para>
+		/// <para>This method does not throw.</para>
+		/// </summary>
+		public static UpdateCheckResult GetResponseData()
+		{
+			string json = GetResponseJson();
+			try
+			{
+				JObject parsed = JObject.Parse(json);
+				if ((string)parsed["result"] == "success")
+				{
+					UpdateCheckData data = parsed["data"]?.ToObject<UpdateCheckData>();
+					if (data != null)
+						return new UpdateCheckResult(data);
+					return new UpdateCheckResult("update check response could not be read");
+				}
+				string reason = (string)parsed["data"]?["reason"];
+				return new UpdateCheckResult(string.IsNullOrWhiteSpace(reason) ? "update check failed" : reason);
+			}
+			catch (Exception ex)
+			{
+				Logger.Debug(ex, "bi6_update_check");
+				return new UpdateCheckResult("update check response could not be read");
+			}
+		}
+
+		/// <summary>
 		/// Checks for updates and returns the JSON body to respond with.  This method does not throw.
 		/// </summary>
 		private static string BuildResponse()
@@ -486,6 +517,44 @@ namespace BiUpdateHelperSite.Bi6UpdateCheck
 			public long? date;
 			public bool stable;
 			public List<string> notes = new List<string>();
+		}
+	}
+	/// <summary>
+	/// <para>The outcome of an update check, as objects.  Returned by
+	/// <see cref="UpdateChecker.GetResponseData"/>.</para>
+	/// <para>Exactly one of <see cref="data"/> and <see cref="failureReason"/> is non-null.</para>
+	/// </summary>
+	public class UpdateCheckResult
+	{
+		/// <summary>
+		/// The update information, or null if the update check did not succeed.
+		/// </summary>
+		public readonly UpdateCheckData data;
+		/// <summary>
+		/// The reason the update check did not succeed, or null if it succeeded.
+		/// </summary>
+		public readonly string failureReason;
+		/// <summary>
+		/// True if the update check succeeded, meaning <see cref="data"/> is non-null.
+		/// </summary>
+		public bool Success => data != null;
+		/// <summary>
+		/// Creates a successful result.
+		/// </summary>
+		/// <param name="data">The update information.  Must be non-null.</param>
+		public UpdateCheckResult(UpdateCheckData data)
+		{
+			if (data == null)
+				throw new ArgumentNullException(nameof(data));
+			this.data = data;
+		}
+		/// <summary>
+		/// Creates a failed result.
+		/// </summary>
+		/// <param name="failureReason">The reason the update check did not succeed.</param>
+		public UpdateCheckResult(string failureReason)
+		{
+			this.failureReason = failureReason;
 		}
 	}
 }

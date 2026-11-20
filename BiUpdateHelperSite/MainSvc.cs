@@ -1,4 +1,5 @@
 ﻿using System;
+using BPUtil;
 #if !LINUX
 using System.ServiceProcess;
 #endif
@@ -22,6 +23,11 @@ namespace BiUpdateHelperSite
 #endif
 	{
 		private WebServer server;
+		/// <summary>
+		/// The time <see cref="DoStart"/> ran, used to log how long the service had been running when it
+		/// stopped.  Null until the service has started.
+		/// </summary>
+		private DateTime? startedUtc;
 
 		public MainSvc()
 		{
@@ -57,6 +63,9 @@ namespace BiUpdateHelperSite
 
 		private void DoStart()
 		{
+			startedUtc = DateTime.UtcNow;
+			Logger.Info(Globals.AssemblyName + " " + Globals.AssemblyVersion + " Starting Up");
+
 			// Loads cached Blue Iris update information from disk so that the "bi6_update_check" API has
 			// something to answer with even if Blue Iris's server is unreachable right now.
 			Bi6UpdateCheck.UpdateChecker.Initialize();
@@ -68,6 +77,14 @@ namespace BiUpdateHelperSite
 
 		private void DoStop()
 		{
+			// Only an orderly stop (the service control manager, systemd, or Ctrl+C) reaches this method, so
+			// a "Starting Up" line with no "Shutting Down" line after it means the process died instead of
+			// being asked to stop.  The uptime is logged with it, because that is what tells a normal restart
+			// apart from a crash-restart loop: a loop shows a run of start/stop-less starts, or starts
+			// followed by stops after only seconds of uptime.
+			string uptime = startedUtc == null ? "unknown (the service never finished starting)" : TimeUtil.ToDHMS(DateTime.UtcNow - startedUtc.Value);
+			Logger.Info(Globals.AssemblyName + " " + Globals.AssemblyVersion + " Shutting Down after an orderly stop request.  Uptime: " + uptime);
+
 			server?.Stop();
 		}
 

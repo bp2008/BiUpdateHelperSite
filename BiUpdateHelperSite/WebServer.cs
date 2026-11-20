@@ -134,6 +134,16 @@ namespace BiUpdateHelperSite
 			{
 				p.Response.Simple("405 Method Not Allowed");
 			}
+			else if (pageLower == "updates")
+			{
+				// A human-readable page showing the same update information the "bi6_update_check" API
+				// answers with.  It is built fresh for each request and must not be cached, for the same
+				// reason that API's response must not be: the information changes without warning.
+				string html = Bi6UpdateCheck.UpdatesPage.BuildHtml(Bi6UpdateCheck.UpdateChecker.GetResponseData());
+				p.Response.FullResponseUTF8(html, "text/html; charset=utf-8");
+				p.Response.Headers["Cache-Control"] = "no-cache, no-store";
+				p.Response.CompressResponseIfCompatible();
+			}
 			else if (p.Request.Page == "IP")
 			{
 				p.Response.FullResponseUTF8(p.RemoteIPAddressStr, "text/plain");
@@ -193,6 +203,11 @@ namespace BiUpdateHelperSite
 				p.Response.Headers["Access-Control-Allow-Origin"] = "*";
 				p.Response.Headers["Cache-Control"] = "no-cache, no-store";
 				p.Response.CompressResponseIfCompatible();
+			}
+			else if (pageLower == "updates")
+			{
+				// The "/updates" page is a GET-only page, answered the same way a GET of the JSON API is.
+				p.Response.Simple("405 Method Not Allowed");
 			}
 			else if (pageLower.StartsWith("api/"))
 			{
