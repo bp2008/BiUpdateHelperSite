@@ -1,33 +1,79 @@
 ﻿using System;
-using System.Runtime.Versioning;
+#if !LINUX
 using System.ServiceProcess;
+#endif
 
 namespace BiUpdateHelperSite
 {
 	/// <summary>
-	/// <para>The Windows service wrapper.  It has no logic of its own; everything the service does lives in
-	/// <see cref="SiteService"/>.</para>
-	/// <para>This type must only be loaded on Windows.  See <see cref="WindowsServiceHost"/> for why, and
-	/// for how the startup path keeps it from being loaded anywhere else.</para>
+	/// <para>The service.  On Windows it is a <c>ServiceBase</c>, so that the Windows service control
+	/// manager can drive it.  On Linux it derives from nothing at all, and BPUtil's
+	/// <see cref="BPUtil.AppInit.WindowsService{ServiceType}"/> calls <c>OnStart</c> and <c>OnStop</c>
+	/// directly.</para>
+	/// <para>The base type is compiled out rather than avoided at run time on purpose.  A non-Windows
+	/// publish gets the portable build of System.ServiceProcess.ServiceController, whose
+	/// <c>ServiceBase</c> constructor throws <see cref="PlatformNotSupportedException"/>, so a runtime
+	/// guard around the service's use is not enough: merely constructing the object would throw.  With
+	/// the base type gone from the Linux build, there is nothing left to throw.</para>
 	/// </summary>
-	[SupportedOSPlatform("windows")]
-	public partial class MainSvc : ServiceBase
+	public partial class MainSvc
+#if !LINUX
+		: ServiceBase
+#endif
 	{
-		private readonly SiteService service = new SiteService();
+		private WebServer server;
 
 		public MainSvc()
 		{
+			// AppInit has already pointed the working directory at the data directory by the time it
+			// constructs this, which is where the settings file and the databases live.
+			MainStatic.LoadSettings();
+#if !LINUX
 			InitializeComponent();
+#endif
 		}
 
+#if LINUX
+		protected void OnStart(string[] args)
+		{
+			DoStart();
+		}
+
+		protected void OnStop()
+		{
+			DoStop();
+		}
+#else
 		protected override void OnStart(string[] args)
 		{
-			service.Start();
+			DoStart();
 		}
 
 		protected override void OnStop()
 		{
-			service.Stop();
+			DoStop();
+		}
+#endif
+
+		private void DoStart()
+		{
+			// Loads cached Blue Iris update information from disk so that the "bi6_update_check" API has
+			// something to answer with even if Blue Iris's server is unreachable right now.
+			Bi6UpdateCheck.UpdateChecker.Initialize();
+			server?.Stop();
+			server = new WebServer(MainStatic.settings.webPort);
+			server.SocketBound += Server_SocketBound;
+			server.Start();
+		}
+
+		private void DoStop()
+		{
+			server?.Stop();
+		}
+
+		private void Server_SocketBound(object sender, string e)
+		{
+			Console.WriteLine(e);
 		}
 	}
 }

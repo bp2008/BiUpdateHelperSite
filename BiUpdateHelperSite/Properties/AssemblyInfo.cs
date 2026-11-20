@@ -19,6 +19,13 @@ using System.Runtime.InteropServices;
 // COM, set the ComVisible attribute to true on that type.
 [assembly: ComVisible(false)]
 
+// The Windows build targets a Windows-specific framework, and BPUtil's Windows build is annotated
+// Windows-only accordingly.  The SDK normally emits this attribute itself for a "-windows" target
+// framework, but only when it generates the assembly attributes, which this project does not do.
+#if !LINUX
+[assembly: System.Runtime.Versioning.SupportedOSPlatform("windows7.0")]
+#endif
+
 // The following GUID is for the ID of the typelib if this project is exposed to COM
 [assembly: Guid("04a71297-2bd6-457c-b945-9ad0d6ef106c")]
 

@@ -1,31 +1,58 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<OutputType>Exe</OutputType>
-		<TargetFramework>net10.0</TargetFramework>
+		<!--
+			Multi-targeting, following the pattern the KVStore service on the same server uses: the first
+			target framework produces the Windows build, the second produces the cross-platform (Linux)
+			build, which is what is deployed to the server.
+		-->
+		<TargetFrameworks>net10.0-windows7.0;net10.0</TargetFrameworks>
 		<RootNamespace>BiUpdateHelperSite</RootNamespace>
-		<AssemblyName>BiUpdateHelperSite</AssemblyName>
 		<!-- Properties\AssemblyInfo.cs is kept, so the SDK must not generate a second set of assembly attributes. -->
 		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
 		<Nullable>disable</Nullable>
 		<ImplicitUsings>disable</ImplicitUsings>
 		<Configurations>Debug;Release</Configurations>
+		<!-- Pinned before AssemblyName is overridden per target framework below, because NuGet restore fails (NU1105) if PackageId differs between them. -->
+		<PackageId>BiUpdateHelperSite</PackageId>
 		<!--
-			CA2200: A rethrow in DB\SQLite.cs, which is third-party code kept as it was received.  It is
-			suppressed for that one file rather than for the project, in .editorconfig.
+			CA2200 and SYSLIB0054 are turned off for DB\SQLite.cs alone, in .editorconfig.
 			SYSLIB0014 (WebClient is obsolete) is suppressed around the one use of it, in WebServer.cs.
 		-->
-		<!-- The arm64 Linux server this is deployed to, plus the Windows machine it is developed on. -->
-		<RuntimeIdentifiers>linux-arm64;linux-x64;win-x64</RuntimeIdentifiers>
 	</PropertyGroup>
+
+	<!-- Windows build.  BPUtil's AppInit shows a WinForms service manager here, hence UseWindowsForms. -->
+	<PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows7.0'">
+		<OutputType>Exe</OutputType>
+		<UseWindowsForms>true</UseWindowsForms>
+		<AssemblyName>BiUpdateHelperSite</AssemblyName>
+	</PropertyGroup>
+
+	<!-- Cross-platform (Linux) build.  Headless; the LINUX constant compiles the Windows service plumbing out. -->
+	<PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'">
+		<OutputType>Exe</OutputType>
+		<AssemblyName>BiUpdateHelperSiteLinux</AssemblyName>
+		<DefineConstants>$(DefineConstants);LINUX</DefineConstants>
+	</PropertyGroup>
+
+	<!-- The Windows service designer file overrides ServiceBase members, so it belongs to the Windows build only. -->
+	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+		<Compile Remove="MainSvc.Designer.cs" />
+		<None Include="MainSvc.Designer.cs" />
+	</ItemGroup>
+
+	<!-- ServiceBase comes from here.  Declared directly rather than relied on through BPUtil's own reference. -->
+	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows7.0'">
+		<PackageReference Include="System.ServiceProcess.ServiceController" Version="7.0.1" />
+	</ItemGroup>
 
 	<ItemGroup>
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 		<!--
 			The native SQLite library.  DB\SQLite.cs (sqlite-net) declares its P/Invokes against the library
 			name "sqlite3"; DB\SqliteNative.cs redirects that name to the "e_sqlite3" library provided by this
-			package.  This package carries a build for every runtime identifier above, including linux-arm64,
-			which is why the old committed sqlite3.dll and libsqlite3.so are no longer needed.
+			package.  This package carries a build for every platform, linux-arm64 included, which is why the
+			old committed sqlite3.dll and libsqlite3.so are no longer needed.
 		-->
 		<PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
 	</ItemGroup>
