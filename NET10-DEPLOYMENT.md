@@ -121,7 +121,9 @@ These have **not** been done — the live server was not touched.
    * clear the old build out of `/var/biupdatehelpersite` (or deploy to a fresh directory)
    * copy the publish output in
    * `chmod +x /var/biupdatehelpersite/BiUpdateHelperSiteLinux`
-   * `chown` `/usr/share/BiUpdateHelperSite` to whatever user the service runs as
+   * no `chown` is needed: the unit AppInit generates sets no `User=`, so the service runs as root
+     and a directory created with `sudo mkdir` is already root-owned.  Ownership only matters if
+     `User=` is added in the hardening drop-in, and then the files inside need it too
 3. **Switch to systemd, not supervisor.**  The service now takes an `svc` argument, and AppInit's
    non-systemd Linux service mode loops on `Console.ReadLine()`, which with stdin redirected from
    `/dev/null` (the way supervisor runs it) returns immediately and spins.  systemd sets
@@ -141,6 +143,12 @@ These have **not** been done — the live server was not touched.
    `RestrictAddressFamilies`); doing the same here is worth it, and `ReadWritePaths` must include
    `/usr/share/BiUpdateHelperSite`.  `status`, `start`, `stop`, `restart` and `uninstall` are also
    accepted as arguments.
+
+   `install` takes `ExecStart` from the path of the dll it is run from, and does nothing at all if
+   the unit file already exists, so moving the deployment directory afterwards means `uninstall`
+   and `install` again.  It constructs the service, so it writes a default `SiteSettings.cfg` if
+   the data directory has none; it does not open the databases, which happens only when the
+   service starts.
 
    If supervisor must be kept, the program line becomes
    `/usr/bin/dotnet /var/biupdatehelpersite/BiUpdateHelperSiteLinux.dll svc` **and** supervisor has to
