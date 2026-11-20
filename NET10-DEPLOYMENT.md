@@ -177,10 +177,13 @@ On .NET 10.0.12, against copies of the real `UsageDb.s3db` (2697 records) and `U
   publish (on Windows it loaded `runtimes/win-x64/native/e_sqlite3.dll`).
 * The `linux-arm64` publish contains an aarch64 apphost and an aarch64 `libe_sqlite3.so`, and no `.a`
   static library.
-* Earlier, on the single-target `net8.0` build: an insert through `POST api/uploadUsageRecord2` added a
-  record with its camera and GPU and read back correctly, a wrong MD5 was rejected with 400, and
-  feeding `UpdateChecker`'s own documented sample response through `ParseUpdateCheckResponse` produced
-  exactly the documented success JSON.  Neither the database code nor `Bi6UpdateCheck` changed since.
+* Also against the Linux build: `POST api/uploadUsageRecord2` inserted a record with its camera and
+  GPU (2697 records to 2698) and the record read back correctly through `?detailsForId=`, with enums
+  still serialized as strings; a payload with a wrong MD5 was rejected with 400.  `AppInit`'s
+  `Logs/` directory was created and stayed empty, so nothing was logged as an error.
+* Feeding `UpdateChecker`'s own documented sample response through `ParseUpdateCheckResponse`
+  produces exactly the documented success JSON.  That was measured on the `net8.0` build; neither
+  `Bi6UpdateCheck` nor the JSON types have changed since.
 
 Not verified:
 
