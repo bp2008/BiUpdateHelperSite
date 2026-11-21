@@ -982,7 +982,9 @@ namespace BiUpdateHelperSite.ChangelogHtml
 		/// Converts the document to a complete HTML page.
 		/// </summary>
 		/// <param name="documentTitle">Title to use, or null to take the document's own.</param>
-		public string Convert(string documentTitle = null)
+		/// <param name="pdfVersionToken">Token identifying the PDF this page is built from, for the link
+		/// at the top of the page.  See the parameter of the same name on <see cref="ChangelogPageShell.BuildPage"/>.</param>
+		public string Convert(string documentTitle = null, string pdfVersionToken = null)
 		{
 			output.Clear();
 			DictionaryToken rootElement = BlockChildren(structTreeRoot).FirstOrDefault();
@@ -1022,7 +1024,7 @@ namespace BiUpdateHelperSite.ChangelogHtml
 				output.AppendLine("</details>");
 				inRelease = false;
 			}
-			return ChangelogPageShell.BuildPage(title, null, output.ToString());
+			return ChangelogPageShell.BuildPage(title, null, output.ToString(), pdfVersionToken);
 		}
 
 		/// <summary>
@@ -1273,8 +1275,10 @@ namespace BiUpdateHelperSite.ChangelogHtml
 		/// by a CSS margin, so that copying a heading yields "6.1.6.1 – 2026-11-17" and not
 		/// "6.1.6.12026-11-17".</para>
 		/// <para>The version is deliberately not a link to its own anchor, even though the anchor exists
-		/// and works: a link inside a <c>&lt;summary&gt;</c> collapses the section when clicked, which
-		/// without JavaScript cannot be prevented.</para>
+		/// and works.  A click on a link inside a <c>&lt;summary&gt;</c> also collapses the section, which
+		/// the page's script could now prevent - it does exactly that for the copy button which sits
+		/// beside this heading - so what keeps the link out is no longer a limitation, only that nothing
+		/// has asked for it.</para>
 		/// </summary>
 		/// <param name="m">The match of <see cref="versionHeading"/> against the paragraph's text.</param>
 		private void WriteReleaseHeading(Match m)

@@ -391,6 +391,9 @@ namespace BiUpdateHelperSite.ChangelogHtml
 		{
 			try
 			{
+				// Reduced once here rather than in each converter, because every tier of the page links to the
+				// same copy of the PDF and must therefore carry the same token.
+				string pdfVersionToken = ChangelogPageShell.BuildPdfVersionToken(signature);
 				TaggedPdfConverter converter = null;
 				bool tagged = false;
 				try
@@ -405,7 +408,7 @@ namespace BiUpdateHelperSite.ChangelogHtml
 					}
 					else
 					{
-						string html = converter.Convert();
+						string html = converter.Convert(null, pdfVersionToken);
 						LogConverterWarnings(converter);
 						string failureReason = converter.GetQualityFailureReason(html);
 						if (failureReason == null)
@@ -421,7 +424,7 @@ namespace BiUpdateHelperSite.ChangelogHtml
 					converter?.Dispose();
 				}
 
-				string fallbackHtml = FallbackConverter.Convert(pdfBytes);
+				string fallbackHtml = FallbackConverter.Convert(pdfBytes, pdfVersionToken);
 				if (fallbackHtml != null && fallbackHtml.Length >= minUsableHtmlLength)
 					return new ChangelogPage(fallbackHtml, ChangelogTier.Fallback, signature, signatureSource, DateTime.UtcNow);
 				Logger.Debug(logTag + ": Text extraction from the changelog PDF produced "
@@ -642,8 +645,10 @@ namespace BiUpdateHelperSite.ChangelogHtml
 		{
 			string notice = ChangelogPageShell.BuildNotice(
 				"The changelog could not be loaded right now.",
-				"Blue Iris&#39;s changelog PDF could not be fetched or read.  This page retries on its own, so refreshing in a minute may be all it takes; in the meantime the PDF itself is linked below.");
-			return new ChangelogPage(ChangelogPageShell.BuildPage(null, notice, ""), ChangelogTier.LinkOnly, null, null, DateTime.UtcNow);
+				"Blue Iris&#39;s changelog PDF could not be fetched or read.  This page retries on its own, so refreshing in a minute may be all it takes; in the meantime the PDF itself is linked at the top of this page.");
+			// No PDF was fetched, so there is no signature to derive a token from and the link at the top of
+			// the page gets no "?v=" at all.
+			return new ChangelogPage(ChangelogPageShell.BuildPage(null, notice, "", null), ChangelogTier.LinkOnly, null, null, DateTime.UtcNow);
 		}
 
 		/// <summary>

@@ -18,7 +18,9 @@ namespace BiUpdateHelperSite.ChangelogHtml
 		/// Converts a PDF to a degraded HTML page.  Throws if the bytes cannot be opened as a PDF at all.
 		/// </summary>
 		/// <param name="pdfBytes">The whole PDF file.</param>
-		public static string Convert(byte[] pdfBytes)
+		/// <param name="pdfVersionToken">Token identifying the PDF this page is built from, for the link
+		/// at the top of the page.  See the parameter of the same name on <see cref="ChangelogPageShell.BuildPage"/>.</param>
+		public static string Convert(byte[] pdfBytes, string pdfVersionToken = null)
 		{
 			StringBuilder sb = new StringBuilder();
 			string title = null;
@@ -32,7 +34,7 @@ namespace BiUpdateHelperSite.ChangelogHtml
 			string notice = ChangelogPageShell.BuildNotice(
 				"This is a plain text rendering of the changelog.",
 				"The PDF could not be converted into a structured page this time, so its text is shown as it was extracted.  Nothing is missing, but the headings, lists and tables are not marked up.");
-			return ChangelogPageShell.BuildPage(title, notice, "<pre>" + text + "</pre>\n");
+			return ChangelogPageShell.BuildPage(title, notice, "<pre>" + text + "</pre>\n", pdfVersionToken);
 		}
 	}
 }
