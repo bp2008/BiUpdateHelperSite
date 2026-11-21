@@ -160,6 +160,12 @@ body {
 	font-size: 16px;
 	line-height: 1.55;
 	-webkit-text-size-adjust: 100%;
+	/* Blue Iris writes registry paths and similar tokens into the prose, and a browser will not
+	   break a line after a backslash, so one 53-character token such as the LocalDumps key in
+	   6.1.3.11 pushed the whole page sideways on a phone.  break-word rather than anywhere,
+	   because only the former is ignored when a browser works out intrinsic widths - see the
+	   comment on th, td, where anywhere was crushing table columns for exactly that reason. */
+	overflow-wrap: break-word;
 }
 main { max-width: 46rem; margin: 0 auto; }
 h1 { font-size: 1.6rem; line-height: 1.25; margin: 0 0 6px; }
