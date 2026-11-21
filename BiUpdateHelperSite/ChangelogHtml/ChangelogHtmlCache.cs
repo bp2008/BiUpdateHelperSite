@@ -645,7 +645,7 @@ namespace BiUpdateHelperSite.ChangelogHtml
 		{
 			string notice = ChangelogPageShell.BuildNotice(
 				"The changelog could not be loaded right now.",
-				"Blue Iris&#39;s changelog PDF could not be fetched or read.  This page retries on its own, so refreshing in a minute may be all it takes; in the meantime the PDF itself is linked at the top of this page.");
+				"Blue Iris's changelog PDF could not be fetched or read.  This page retries on its own, so refreshing in a minute may be all it takes; in the meantime the PDF itself is linked at the top of this page.");
 			// No PDF was fetched, so there is no signature to derive a token from and the link at the top of
 			// the page gets no "?v=" at all.
 			return new ChangelogPage(ChangelogPageShell.BuildPage(null, notice, "", null), ChangelogTier.LinkOnly, null, null, DateTime.UtcNow);
